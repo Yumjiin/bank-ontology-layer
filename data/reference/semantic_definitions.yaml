@@ -1,0 +1,68 @@
+# 은행 목데이터 정의 문서 (데모 B에서 LLM에 함께 제공)
+# MetricFlow의 개념(엔티티, 디멘션, 측정값, 지표)을 참고한 설명용 형식
+
+relationships:
+  - "고객(cust)은 계좌관계(acct_rel)를 통해 계좌(acct)와 연결됨"
+  - "acct_rel.rel_cd = '01'이면 명의인(계좌 주인), '02'이면 대리인(위임받아 이용하는 사람)"
+  - "한 계좌에는 명의인 1명과 대리인 0명 이상이 연결될 수 있음"
+  - "거래(txn)는 계좌(acct)에서 발생함 (txn.acct_no = acct.acct_no)"
+  - "계좌(acct)는 지점(brnc)에 소속됨 (acct.brnc_cd = brnc.brnc_cd)"
+
+codes:
+  txn_cd:
+    IN: 고객 입금
+    OUT: 고객 출금
+    INT: 이자 지급 (시스템이 발생시킨 거래)
+    FEE: 수수료 출금 (시스템이 발생시킨 거래)
+  acct_stat_cd:
+    A: 정상
+    D: 휴면
+    C: 해지
+  rel_cd:
+    "01": 명의인
+    "02": 대리인
+  prod_cd:
+    DD01: 보통예금
+    SV01: 정기적금
+  chnl_cd:
+    "01": 창구
+    "02": ATM
+    "03": 인터넷뱅킹
+    "04": 모바일뱅킹
+  sex_cd:
+    "1": 남성
+    "2": 여성
+
+columns:
+  brnc.attr1: 지점명
+  brnc.attr2: 지역코드 (11 서울, 28 인천, 41 경기)
+  brnc.attr3: 지점 개설일 (YYYYMMDD)
+  brnc.attr4: 직원 수
+  brnc.attr5: 지점 유형 (01 일반지점, 02 출장소)
+
+storage_rules:
+  - "모든 날짜 컬럼(txn_dt, open_ymd, join_ymd, birth_ymd)은 'YYYYMMDD' 형식 문자열임 (예: '20260915')"
+  - "txn.amt는 항상 양수이며, 돈의 방향은 txn_cd로 구분함"
+  - "txn.cncl_yn = 'Y'인 거래는 취소된 거래이므로 모든 집계에서 제외함"
+
+metrics:
+  - name: active_customer_count
+    label: 활성 고객 수
+    definition: "기간 내 고객 발생 거래(IN, OUT)가 1건 이상 있는 계좌의 명의인 고객 수"
+    notes:
+      - "이자(INT)·수수료(FEE)는 시스템 거래이므로 활동으로 보지 않음"
+      - "대리인은 활성 고객에 포함하지 않음"
+    joins: "txn -> acct_rel (rel_cd = '01') -> cust"
+    filters:
+      - "txn_cd IN ('IN', 'OUT')"
+      - "cncl_yn = 'N'"
+    measure: "COUNT(DISTINCT cust_no)"
+
+  - name: net_deposit
+    label: 순입금액
+    definition: "기간 내 고객 입금(IN) 합계에서 고객 출금(OUT) 합계를 뺀 값"
+    notes:
+      - "이자(INT)·수수료(FEE)는 포함하지 않음"
+    filters:
+      - "cncl_yn = 'N'"
+    measure: "SUM(CASE WHEN txn_cd = 'IN' THEN amt WHEN txn_cd = 'OUT' THEN -amt ELSE 0 END)"
