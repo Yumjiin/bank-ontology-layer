@@ -20,7 +20,7 @@ app (Streamlit) → agent (LLM 도구 호출) → service (Ontology Service, Fas
 Windows (PowerShell)
 
 ```powershell
-git clone https://github.com/<계정>/bank-ontology-layer.git
+git clone https://github.com/Yumjiin/bank-ontology-layer.git
 cd bank-ontology-layer
 copy .env.example .env
 docker compose up --build
@@ -29,7 +29,7 @@ docker compose up --build
 macOS / Linux
 
 ```bash
-git clone https://github.com/<계정>/bank-ontology-layer.git
+git clone https://github.com/Yumjiin/bank-ontology-layer.git
 cd bank-ontology-layer
 cp .env.example .env
 docker compose up --build
