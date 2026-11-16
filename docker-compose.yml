@@ -1,0 +1,57 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bank}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bank}
+      POSTGRES_DB: ${POSTGRES_DB:-bank}
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bank} -d ${POSTGRES_DB:-bank}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # 스키마 생성 + 목데이터 적재 후 종료함 (담당: 지영)
+  seed:
+    build: ./data
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  # Ontology Service (담당: 지인)
+  service:
+    build: ./service
+    env_file: .env
+    environment:
+      ONTOLOGY_PATH: /app/ontology/ontology.yaml
+    volumes:
+      - ./ontology:/app/ontology:ro
+    ports:
+      - "8001:8000"
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+
+  # Streamlit 데모 + 에이전트 (담당: 수민)
+  app:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    env_file: .env
+    environment:
+      ONTOLOGY_API_URL: http://service:8000
+    ports:
+      - "8502:8501"
+    depends_on:
+      - service
+
+  # 평가 서비스는 eval 구현 시 추가 (담당: 지영, docs/issues.md 참고)
+
+volumes:
+  pgdata:

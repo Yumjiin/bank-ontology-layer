@@ -1,0 +1,11 @@
+{
+  "from": { "object_type": "Customer", "id": "C0012" },
+  "link": "owns",
+  "object_type": "Account",
+  "count": 1,
+  "items": [
+    { "acct_no": "1002-001-000123", "status": "활성", "branch_cd": "B01" }
+  ],
+  "policy": { "masked": [], "blocked": [] },
+  "trace_id": "t-0002"
+}

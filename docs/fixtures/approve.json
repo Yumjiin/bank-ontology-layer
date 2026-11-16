@@ -1,0 +1,6 @@
+{
+  "request_id": 7,
+  "status": "EXECUTED",
+  "result": { "acct_no": "1002-001-000123", "status": "지급정지" },
+  "trace_id": "t-0006"
+}

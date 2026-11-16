@@ -1,0 +1,9 @@
+{
+  "metric": "active_customers",
+  "description": "기간 내 명의인 계좌에서 입금 또는 출금 거래가 1건 이상 발생한 고객 수",
+  "period": { "start": "2026-07-01", "end": "2026-09-30" },
+  "value": 165,
+  "unit": "명",
+  "sql": "SELECT COUNT(DISTINCT c.cust_no) FROM cust c JOIN acct_rel r ON ... WHERE r.rel_cd = '01' AND t.txn_dt BETWEEN '20260701' AND '20260930' AND t.txn_cd IN ('IN','OUT') AND t.cncl_yn = 'N'",
+  "trace_id": "t-0003"
+}

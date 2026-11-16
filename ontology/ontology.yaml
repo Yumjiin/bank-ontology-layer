@@ -1,0 +1,118 @@
+# Bank Ontology v0.1
+#
+# 구조(키 이름과 형식)는 지인이 관리하고, 실제 매핑 내용은 지영이 채움.
+# 아래 값 중 "TODO(지영)" 표시는 발표 데모의 generate_mock_data.py,
+# semantic_definitions.yaml 기준으로 실제 컬럼명·코드값으로 바꿔야 함.
+#
+# 키 설명
+#   object_types   현실의 대상 ↔ 원천 테이블
+#     properties   속성 ↔ 컬럼. values는 원천 코드 → 사람이 쓰는 값, sensitivity: PII는 마스킹 대상
+#     default_filters  조회 시 항상 적용되는 조건 (예: 취소 거래 제외)
+#   link_types     객체 간 관계. via(관계 테이블 경유) 또는 join(직접 조인) 중 하나
+#   metrics        비즈니스 지표. path는 link 이름 순서, filters/aggregate/expression으로 계산 규칙 정의
+#   action_types   데이터를 바꾸는 행동. allowed_roles만 요청 가능, requires_approval이면 승인 후 실행
+#   roles          역할별 정책. mask/block에는 sensitivity 값을 넣음
+
+version: "0.1"
+
+object_types:
+  Customer:
+    table: cust
+    primary_key: cust_no
+    description: 은행과 거래 관계가 있는 개인 고객
+    properties:
+      cust_no: { column: cust_no }
+      name: { column: cust_nm, sensitivity: PII }        # TODO(지영): 실제 컬럼명
+      grade:
+        column: cust_grd_cd                                # TODO(지영): 실제 컬럼명·코드값
+        values: { "01": VIP, "02": 일반 }
+
+  Account:
+    table: acct
+    primary_key: acct_no
+    description: 고객 명의로 개설된 계좌
+    properties:
+      acct_no: { column: acct_no }
+      status:
+        column: acct_stat_cd                               # TODO(지영): 실제 컬럼명
+        values: { A: 활성, D: 휴면, C: 해지 }
+      branch_cd: { column: brnc_cd }                       # TODO(지영): 실제 컬럼명
+
+  Transaction:
+    table: txn
+    primary_key: txn_no                                    # TODO(지영): 실제 PK 컬럼명
+    description: 계좌에서 발생한 입출금·이자·수수료 거래
+    properties:
+      txn_no: { column: txn_no }
+      acct_no: { column: acct_no }
+      date: { column: txn_dt, type: date, format: YYYYMMDD }
+      type:
+        column: txn_cd
+        values: { IN: 입금, OUT: 출금, INT: 이자, FEE: 수수료 }
+      amount: { column: amt, type: number }
+      cancelled:
+        column: cncl_yn
+        values: { "Y": "true", "N": "false" }
+    default_filters:
+      - "cancelled = false"
+
+  Branch:
+    table: brnc
+    primary_key: brnc_cd                                   # TODO(지영): 실제 PK 컬럼명
+    description: 계좌를 관리하는 지점
+    properties:
+      brnc_cd: { column: brnc_cd }
+      name: { column: attr1 }                              # TODO(지영): attr1~attr5 의미 확인 후 매핑
+
+link_types:
+  owns:
+    description: 고객이 명의인으로 보유한 계좌
+    from: Customer
+    to: Account
+    via: { table: acct_rel, from_key: cust_no, to_key: acct_no, condition: "rel_cd = '01'" }  # TODO(지영): 관계코드 컬럼명
+
+  delegated:
+    description: 고객이 대리인으로 등록된 계좌
+    from: Customer
+    to: Account
+    via: { table: acct_rel, from_key: cust_no, to_key: acct_no, condition: "rel_cd = '02'" }
+
+  has_transaction:
+    description: 계좌에서 발생한 거래
+    from: Account
+    to: Transaction
+    join: { from_key: acct_no, to_key: acct_no }
+
+  managed_by:
+    description: 계좌를 관리하는 지점
+    from: Account
+    to: Branch
+    join: { from_key: brnc_cd, to_key: brnc_cd }
+
+metrics:
+  active_customers:
+    description: 기간 내 명의인 계좌에서 입금 또는 출금 거래가 1건 이상 발생한 고객 수
+    object: Customer
+    path: [owns, has_transaction]
+    filters: ["Transaction.type in [IN, OUT]"]             # TODO(지영): 발표 정의 문서의 '활성' 기준과 일치하는지 확인
+    aggregate: count_distinct(Customer.cust_no)
+    params: [period]
+
+  net_deposit:
+    description: 기간 내 입금액 합계에서 출금액 합계를 뺀 값 (이자·수수료 제외)
+    object: Transaction
+    expression: "sum(case type=IN then amount when type=OUT then -amount)"
+    params: [period]
+
+action_types:
+  freeze_account:
+    description: 계좌를 지급정지 상태로 변경함
+    target: Account
+    params: { reason: string }
+    allowed_roles: [manager]
+    requires_approval: true
+
+roles:
+  teller: { description: 상담원, mask: [], block: [] }
+  marketer: { description: 마케팅, mask: [PII], block: [] }
+  manager: { description: 관리자, mask: [], block: [] }

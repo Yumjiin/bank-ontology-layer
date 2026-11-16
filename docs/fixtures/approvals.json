@@ -1,0 +1,13 @@
+{
+  "items": [
+    {
+      "request_id": 7,
+      "action_type": "freeze_account",
+      "target_id": "1002-001-000123",
+      "params": { "reason": "보이스피싱 의심" },
+      "requested_role": "manager",
+      "status": "PENDING",
+      "created_at": "2026-12-02T19:30:00+09:00"
+    }
+  ]
+}

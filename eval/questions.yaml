@@ -1,0 +1,17 @@
+# 평가 질문셋 (담당: 지영)
+# answer는 정답 SQL을 DB에서 실행한 결과 값으로 기록함.
+
+questions:
+  - id: q01
+    question: 2026년 3분기(7~9월) 활성 고객 수는?
+    answer: 165
+    answer_sql: |
+      -- TODO(지영): 발표 데모 check_answer.py의 정답 SQL 이관
+    tags: [metric, 정의필요]
+
+  - id: q02
+    question: 2026년 9월 순입금액은?
+    answer: 389638000
+    answer_sql: |
+      -- TODO(지영)
+    tags: [metric, 코드값, 취소거래]

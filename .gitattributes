@@ -1,0 +1,2 @@
+# Windows에서 작업해도 Dockerfile·스크립트 줄바꿈이 LF로 유지되게 함
+* text=auto eol=lf

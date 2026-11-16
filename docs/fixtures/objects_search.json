@@ -1,0 +1,10 @@
+{
+  "object_type": "Customer",
+  "count": 2,
+  "items": [
+    { "cust_no": "C0012", "name": "***", "grade": "VIP" },
+    { "cust_no": "C0047", "name": "***", "grade": "VIP" }
+  ],
+  "policy": { "masked": ["name"], "blocked": [] },
+  "trace_id": "t-0001"
+}

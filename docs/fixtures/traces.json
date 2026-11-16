@@ -1,0 +1,8 @@
+{
+  "session_id": "3f1c2e7a-0000-0000-0000-000000000000",
+  "items": [
+    { "step": 1, "span_type": "chat", "tool_name": null, "output_summary": "get_metric 호출 결정", "latency_ms": 820 },
+    { "step": 2, "span_type": "execute_tool", "tool_name": "get_metric", "input": { "name": "active_customers", "period": { "start": "2026-07-01", "end": "2026-09-30" } }, "sql_text": "SELECT COUNT(DISTINCT ...", "policy_decision": "ALLOW", "latency_ms": 45 },
+    { "step": 3, "span_type": "chat", "tool_name": null, "output_summary": "최종 답변 생성", "latency_ms": 640 }
+  ]
+}

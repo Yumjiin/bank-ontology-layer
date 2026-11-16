@@ -1,0 +1,18 @@
+# 환경변수 (API 키 포함)
+.env
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# 로컬 DB 파일 (SQLite 실험용)
+*.db
+
+# OS·에디터
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
