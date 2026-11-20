@@ -26,7 +26,7 @@ object_types:
       grade:
         column: cust_grd_cd                                # 원본에 없던 컬럼, data/seed.py의 규칙으로 계산 (상반기 입금 3,000만 원 이상 VIP)
         values: { "01": VIP, "02": 일반 }
-      birth_date: { column: birth_ymd, type: date, format: YYYYMMDD, sensitivity: PII }
+      birth_date: { column: birth_ymd, type: date, format: YYYYMMDD }
       sex:
         column: sex_cd
         values: { "1": 남성, "2": 여성 }
