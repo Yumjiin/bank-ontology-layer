@@ -22,10 +22,15 @@ object_types:
     description: 은행과 거래 관계가 있는 개인 고객
     properties:
       cust_no: { column: cust_no }
-      name: { column: cust_nm, sensitivity: PII }        # TODO(지영): 실제 컬럼명
+      name: { column: cust_nm, sensitivity: PII }
       grade:
-        column: cust_grd_cd                                # TODO(지영): 실제 컬럼명·코드값
+        column: cust_grd_cd                                # 원본에 없던 컬럼, data/seed.py의 규칙으로 계산 (상반기 입금 3,000만 원 이상 VIP)
         values: { "01": VIP, "02": 일반 }
+      birth_date: { column: birth_ymd, type: date, format: YYYYMMDD }
+      sex:
+        column: sex_cd
+        values: { "1": 남성, "2": 여성 }
+      join_date: { column: join_ymd, type: date, format: YYYYMMDD }   # 은행 가입일
 
   Account:
     table: acct
@@ -34,18 +39,23 @@ object_types:
     properties:
       acct_no: { column: acct_no }
       status:
-        column: acct_stat_cd                               # TODO(지영): 실제 컬럼명
+        column: acct_stat_cd
         values: { A: 활성, D: 휴면, C: 해지 }
-      branch_cd: { column: brnc_cd }                       # TODO(지영): 실제 컬럼명
+      branch_cd: { column: brnc_cd }
+      product:
+        column: prod_cd
+        values: { DD01: 보통예금, SV01: 정기적금 }
+      open_date: { column: open_ymd, type: date, format: YYYYMMDD }   # 계좌 개설일
 
   Transaction:
     table: txn
-    primary_key: txn_no                                    # TODO(지영): 실제 PK 컬럼명
+    primary_key: txn_id                                    # 실제 DB 컬럼명
     description: 계좌에서 발생한 입출금·이자·수수료 거래
     properties:
-      txn_no: { column: txn_no }
+      txn_no: { column: txn_id }                           # 속성명(txn_no)은 유지, 컬럼만 실제 이름으로 매핑
       acct_no: { column: acct_no }
       date: { column: txn_dt, type: date, format: YYYYMMDD }
+      time: { column: txn_tm }                             # 'HHMMSS' 문자열
       type:
         column: txn_cd
         values: { IN: 입금, OUT: 출금, INT: 이자, FEE: 수수료 }
@@ -53,23 +63,36 @@ object_types:
       cancelled:
         column: cncl_yn
         values: { "Y": "true", "N": "false" }
+      channel:
+        column: chnl_cd
+        values: { "01": 창구, "02": ATM, "03": 인터넷뱅킹, "04": 모바일뱅킹 }
     default_filters:
       - "cancelled = false"
 
   Branch:
     table: brnc
-    primary_key: brnc_cd                                   # TODO(지영): 실제 PK 컬럼명
+    primary_key: brnc_cd
     description: 계좌를 관리하는 지점
     properties:
       brnc_cd: { column: brnc_cd }
-      name: { column: attr1 }                              # TODO(지영): attr1~attr5 의미 확인 후 매핑
+      # 원천 컬럼명이 attr1~attr5라 이름만으로는 의미를 알 수 없음 (의도한 함정)
+      # 의미는 data/reference/semantic_definitions.yaml의 columns 항목 기준
+      name: { column: attr1 }                              # 지점명
+      region:
+        column: attr2                                      # 지역코드
+        values: { "11": 서울, "28": 인천, "41": 경기 }
+      open_date: { column: attr3, type: date, format: YYYYMMDD }   # 지점 개설일
+      staff_count: { column: attr4, type: number }         # 직원 수
+      type:
+        column: attr5                                      # 지점 유형
+        values: { "01": 일반지점, "02": 출장소 }
 
 link_types:
   owns:
     description: 고객이 명의인으로 보유한 계좌
     from: Customer
     to: Account
-    via: { table: acct_rel, from_key: cust_no, to_key: acct_no, condition: "rel_cd = '01'" }  # TODO(지영): 관계코드 컬럼명
+    via: { table: acct_rel, from_key: cust_no, to_key: acct_no, condition: "rel_cd = '01'" }
 
   delegated:
     description: 고객이 대리인으로 등록된 계좌
@@ -94,7 +117,7 @@ metrics:
     description: 기간 내 명의인 계좌에서 입금 또는 출금 거래가 1건 이상 발생한 고객 수
     object: Customer
     path: [owns, has_transaction]
-    filters: ["Transaction.type in [IN, OUT]"]             # TODO(지영): 발표 정의 문서의 '활성' 기준과 일치하는지 확인
+    filters: ["Transaction.type in [IN, OUT]"]             # 정의 문서(semantic_definitions.yaml) 기준과 일치 확인함
     aggregate: count_distinct(Customer.cust_no)
     params: [period]
 
