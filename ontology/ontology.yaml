@@ -26,6 +26,11 @@ object_types:
       grade:
         column: cust_grd_cd                                # 원본에 없던 컬럼, data/seed.py의 규칙으로 계산 (상반기 입금 3,000만 원 이상 VIP)
         values: { "01": VIP, "02": 일반 }
+      birth_date: { column: birth_ymd, type: date, format: YYYYMMDD, sensitivity: PII }
+      sex:
+        column: sex_cd
+        values: { "1": 남성, "2": 여성 }
+      join_date: { column: join_ymd, type: date, format: YYYYMMDD }   # 은행 가입일
 
   Account:
     table: acct
@@ -37,6 +42,10 @@ object_types:
         column: acct_stat_cd
         values: { A: 활성, D: 휴면, C: 해지 }
       branch_cd: { column: brnc_cd }
+      product:
+        column: prod_cd
+        values: { DD01: 보통예금, SV01: 정기적금 }
+      open_date: { column: open_ymd, type: date, format: YYYYMMDD }   # 계좌 개설일
 
   Transaction:
     table: txn
@@ -46,6 +55,7 @@ object_types:
       txn_no: { column: txn_id }                           # 속성명(txn_no)은 유지, 컬럼만 실제 이름으로 매핑
       acct_no: { column: acct_no }
       date: { column: txn_dt, type: date, format: YYYYMMDD }
+      time: { column: txn_tm }                             # 'HHMMSS' 문자열
       type:
         column: txn_cd
         values: { IN: 입금, OUT: 출금, INT: 이자, FEE: 수수료 }
@@ -53,6 +63,9 @@ object_types:
       cancelled:
         column: cncl_yn
         values: { "Y": "true", "N": "false" }
+      channel:
+        column: chnl_cd
+        values: { "01": 창구, "02": ATM, "03": 인터넷뱅킹, "04": 모바일뱅킹 }
     default_filters:
       - "cancelled = false"
 
@@ -104,7 +117,10 @@ metrics:
     description: 기간 내 명의인 계좌에서 입금 또는 출금 거래가 1건 이상 발생한 고객 수
     object: Customer
     path: [owns, has_transaction]
-    filters: ["Transaction.type in [IN, OUT]"]             # TODO(지영): 발표 정의 문서의 '활성' 기준과 일치하는지 확인
+    filters: ["Transaction.type in [IN, OUT]"]             # 정의 문서(semantic_definitions.yaml) 기준과 일치 확인함
+    # 취소 거래 제외는 Transaction.default_filters로 적용되어야 함 (정답 165명 기준)
+    # 확인 필요(지인): 링크 경로로 도달한 Transaction에도 default_filters가 적용되는지,
+    #                period가 Transaction.date(txn_dt)에 걸리는지
     aggregate: count_distinct(Customer.cust_no)
     params: [period]
 
