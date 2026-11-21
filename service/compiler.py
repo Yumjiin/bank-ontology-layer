@@ -3,15 +3,15 @@
 LLM은 SQL을 쓰지 않고 "객체 타입 + 속성 + 사람이 쓰는 값"만 보냄.
 이 모듈이 ontology.yaml 정의를 보고 원천 테이블·컬럼·코드값으로 바꿔 SQL 조건을 만듦.
 
-현재 구현 범위 (이슈 #3 1~3단계)
+현재 구현 범위 (이슈 #3)
 1. 값 변환: 사람이 쓰는 값 → 원천 코드      VIP → '01', 입금 → 'IN'
 2. 날짜 변환: ISO 날짜 → 원천 저장 형식      2026-07-01 → '20260701'
 3. 필터 → SQL 조건                           eq, in, gte, lte, between
+4. 기본 필터 자동 적용                       Transaction 조회 시 cncl_yn = 'N'
+5. 객체 검색 SELECT 조립                     compile_search()
 +  역변환: 조회 결과를 사람이 쓰는 값으로     '01' → VIP (policy·응답에서 사용)
 
 다음 단계 (TODO)
-4. 기본 필터(default_filters) 자동 적용
-5. 객체 검색 SELECT 조립
 6. 링크 탐색, 지표 계산 (#4)
 """
 
@@ -21,9 +21,9 @@ import re
 from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import column, table
+from sqlalchemy import and_, column, select, table
 from sqlalchemy.sql.elements import ColumnElement
-from sqlalchemy.sql.expression import TableClause
+from sqlalchemy.sql.expression import Select, TableClause
 
 from metadata import ObjectType, Ontology, Property
 from schemas import Filter
@@ -154,11 +154,20 @@ def decode_row(obj: ObjectType, row: dict[str, Any]) -> dict[str, Any]:
 # 3. 필터 → SQL 조건
 # ---------------------------------------------------------------
 
-def build_condition(ontology: Ontology, obj_name: str, flt: Filter) -> ColumnElement[bool]:
-    """필터 하나를 SQL 조건으로 바꿈. 값은 모두 바인드 파라미터로 들어가 SQL 인젝션이 불가능함."""
+def build_condition(
+    ontology: Ontology,
+    obj_name: str,
+    flt: Filter,
+    tbl: TableClause | None = None,
+) -> ColumnElement[bool]:
+    """필터 하나를 SQL 조건으로 바꿈. 값은 모두 바인드 파라미터로 들어가 SQL 인젝션이 불가능함.
+
+    tbl: 한 쿼리 안에서는 같은 테이블 객체를 써야 FROM 절이 중복되지 않음.
+         compile_search처럼 SELECT를 조립할 때 넘겨주고, 단독 사용 시에는 생략함.
+    """
     obj = get_object_type(ontology, obj_name)
     prop = get_property(obj_name, obj, flt.property)
-    col = to_table(obj).c[prop.column]
+    col = (tbl if tbl is not None else to_table(obj)).c[prop.column]
 
     def enc(v: Any) -> Any:
         return encode_value(obj_name, flt.property, prop, v)
@@ -186,5 +195,102 @@ def build_condition(ontology: Ontology, obj_name: str, flt: Filter) -> ColumnEle
     raise CompileError(f"지원하지 않는 연산자 '{flt.op}'")  # schemas.Filter가 먼저 막지만 방어용
 
 
-def build_conditions(ontology: Ontology, obj_name: str, filters: list[Filter]) -> list[ColumnElement[bool]]:
-    return [build_condition(ontology, obj_name, f) for f in filters]
+def build_conditions(
+    ontology: Ontology,
+    obj_name: str,
+    filters: list[Filter],
+    tbl: TableClause | None = None,
+) -> list[ColumnElement[bool]]:
+    return [build_condition(ontology, obj_name, f, tbl) for f in filters]
+
+
+# ---------------------------------------------------------------
+# 4. 기본 필터 (default_filters)
+# ---------------------------------------------------------------
+
+# ontology.yaml의 default_filters 한 줄: "<속성> <연산자> <값>"  예) "cancelled = false"
+_DEFAULT_FILTER = re.compile(r"^\s*(\w+)\s*(=|!=)\s*(.+?)\s*$")
+
+
+def parse_default_filter(obj_name: str, expr: str) -> Filter:
+    """기본 필터 문자열을 Filter로 바꿈. 값은 사람이 쓰는 값으로 적혀 있으므로 일반 필터와 같은 변환을 거침."""
+    m = _DEFAULT_FILTER.match(expr)
+    if not m:
+        raise CompileError(f"{obj_name}.default_filters: 해석할 수 없는 식 '{expr}' (형식: '속성 = 값')")
+    prop_name, op, value = m.groups()
+    if op == "!=":
+        # 현재 정의에 필요한 건 '='뿐이라 미지원. 필요해지면 Filter에 neq 연산자를 추가함
+        raise CompileError(f"{obj_name}.default_filters: '!='는 아직 지원하지 않음 ('{expr}')")
+    return Filter(property=prop_name, op="eq", value=value.strip("'\""))
+
+
+def effective_filters(ontology: Ontology, obj_name: str, filters: list[Filter]) -> list[Filter]:
+    """요청 필터에 기본 필터를 더함.
+
+    같은 속성을 요청에서 직접 지정했다면 기본 필터는 빼고 요청을 따름.
+    예) 기본은 취소 거래 제외지만, "취소된 거래만 보여줘"(cancelled = true)는 그대로 허용.
+    """
+    obj = get_object_type(ontology, obj_name)
+    requested = {f.property for f in filters}
+    defaults = [parse_default_filter(obj_name, d) for d in obj.default_filters]
+    return list(filters) + [d for d in defaults if d.property not in requested]
+
+
+def check_default_filters(ontology: Ontology) -> list[str]:
+    """모든 default_filters가 해석·변환 가능한지 확인하고 오류 목록을 반환함.
+
+    서비스 기동 시 호출함. 잘못된 기본 필터가 첫 요청 때가 아니라 기동 시점에 드러나게 하기 위함.
+    """
+    errors: list[str] = []
+    for obj_name, obj in ontology.object_types.items():
+        for expr in obj.default_filters:
+            try:
+                build_condition(ontology, obj_name, parse_default_filter(obj_name, expr))
+            except CompileError as e:
+                errors.append(str(e))
+    return errors
+
+
+# ---------------------------------------------------------------
+# 5. 객체 검색 SELECT 조립
+# ---------------------------------------------------------------
+
+def primary_key_property(obj_name: str, obj: ObjectType) -> str:
+    """primary_key 컬럼에 대응하는 속성 이름. 정의 검증에서 존재가 보장됨."""
+    for name, prop in obj.properties.items():
+        if prop.column == obj.primary_key:
+            return name
+    raise CompileError(f"{obj_name}: primary_key '{obj.primary_key}'에 대응하는 속성이 없음")
+
+
+def compile_search(
+    ontology: Ontology,
+    obj_name: str,
+    filters: list[Filter] | None = None,
+    properties: list[str] | None = None,
+    limit: int = 20,
+) -> Select:
+    """객체 검색 요청을 SELECT 문으로 바꿈.
+
+    - properties를 생략하면 정의된 속성 전체를 조회함
+    - 결과를 식별할 수 있게 기본 키 속성은 항상 포함함
+    - 결과 순서가 실행마다 바뀌지 않게 기본 키로 정렬함 (시연·평가 재현성)
+    - 결과 컬럼은 원천 컬럼명 그대로이며, decode_row로 사람이 쓰는 값으로 바꿈
+    """
+    obj = get_object_type(ontology, obj_name)
+    tbl = to_table(obj)
+    pk = primary_key_property(obj_name, obj)
+
+    selected = list(obj.properties) if not properties else list(dict.fromkeys(properties))
+    for name in selected:
+        get_property(obj_name, obj, name)  # 없는 속성이면 허용 목록과 함께 오류
+    if pk not in selected:
+        selected.insert(0, pk)
+
+    columns = [tbl.c[obj.properties[name].column] for name in selected]
+    conditions = build_conditions(ontology, obj_name, effective_filters(ontology, obj_name, filters or []), tbl)
+
+    stmt = select(*columns).select_from(tbl)
+    if conditions:
+        stmt = stmt.where(and_(*conditions))
+    return stmt.order_by(tbl.c[obj.primary_key]).limit(limit)

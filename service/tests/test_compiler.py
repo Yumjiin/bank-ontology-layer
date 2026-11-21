@@ -8,8 +8,12 @@ from sqlalchemy.dialects import postgresql
 from compiler import (
     CompileError,
     build_condition,
+    check_default_filters,
+    compile_search,
     decode_row,
+    effective_filters,
     encode_value,
+    parse_default_filter,
 )
 from metadata import load_ontology
 from schemas import Filter
@@ -45,7 +49,7 @@ class TestCodeValues:
         assert encode_value("Transaction", "type", t, "입금") == "IN"
 
     def test_boolean_code(self, onto):
-  git commit -m "feat: 필터 값 변환과 SQL 조건 생성 추가"      c = onto.object_types["Transaction"].properties["cancelled"]
+        c = onto.object_types["Transaction"].properties["cancelled"]
         assert encode_value("Transaction", "cancelled", c, False) == "N"
         assert encode_value("Transaction", "cancelled", c, "true") == "Y"
 
@@ -144,3 +148,82 @@ def test_decode_row(onto):
         "amount": 5000,
         "cancelled": "false",
     }
+
+
+# ---------------------------------------------------------------
+# 4. 기본 필터
+# ---------------------------------------------------------------
+
+class TestDefaultFilters:
+    def test_parse(self):
+        f = parse_default_filter("Transaction", "cancelled = false")
+        assert (f.property, f.op, f.value) == ("cancelled", "eq", "false")
+
+    def test_unparseable_expression(self):
+        with pytest.raises(CompileError):
+            parse_default_filter("Transaction", "cancelled is false")
+
+    def test_default_is_added(self, onto):
+        props = [f.property for f in effective_filters(onto, "Transaction", [])]
+        assert props == ["cancelled"]
+
+    def test_explicit_filter_overrides_default(self, onto):
+        # "취소된 거래만" 같은 요청은 기본 필터에 막히지 않아야 함
+        req = [Filter(property="cancelled", op="eq", value="true")]
+        result = effective_filters(onto, "Transaction", req)
+        assert len(result) == 1 and result[0].value == "true"
+
+    def test_object_without_defaults(self, onto):
+        assert effective_filters(onto, "Customer", []) == []
+
+    def test_all_defaults_in_fixture_are_valid(self, onto):
+        assert check_default_filters(onto) == []
+
+    def test_invalid_default_value_is_reported(self, onto):
+        broken = onto.model_copy(deep=True)
+        broken.object_types["Transaction"].default_filters = ["cancelled = maybe"]
+        assert check_default_filters(broken)
+
+
+# ---------------------------------------------------------------
+# 5. 객체 검색 SELECT
+# ---------------------------------------------------------------
+
+class TestSearch:
+    def test_customer_search_with_filter(self, onto):
+        stmt = compile_search(onto, "Customer", [Filter(property="grade", op="eq", value="VIP")], ["grade"], limit=5)
+        assert sql(stmt) == (
+            "SELECT cust.cust_no, cust.cust_grd_cd \n"
+            "FROM cust \n"
+            "WHERE cust.cust_grd_cd = '01' ORDER BY cust.cust_no \n"
+            " LIMIT 5"
+        )
+
+    def test_transaction_search_applies_default_filter(self, onto):
+        # 발표 데모의 '취소 거래 포함' 함정이 요청에 없어도 자동으로 제외됨
+        stmt = compile_search(
+            onto,
+            "Transaction",
+            [Filter(property="date", op="between", value=["2026-09-01", "2026-09-30"])],
+            ["date", "type", "amount"],
+        )
+        s = sql(stmt)
+        assert "txn.txn_dt BETWEEN '20260901' AND '20260930'" in s
+        assert "txn.cncl_yn = 'N'" in s
+        assert s.count("FROM txn") == 1  # 같은 테이블 객체를 공유해 FROM이 중복되지 않음
+
+    def test_all_properties_when_not_specified(self, onto):
+        s = sql(compile_search(onto, "Customer"))
+        assert "cust.cust_no, cust.cust_nm, cust.cust_grd_cd" in s
+
+    def test_primary_key_always_included(self, onto):
+        s = sql(compile_search(onto, "Account", properties=["status"]))
+        assert s.startswith("SELECT acct.acct_no, acct.acct_stat_cd")
+
+    def test_duplicate_properties_are_removed(self, onto):
+        s = sql(compile_search(onto, "Account", properties=["status", "status"]))
+        assert s.count("acct.acct_stat_cd") == 1
+
+    def test_unknown_property_in_select(self, onto):
+        with pytest.raises(CompileError, match="속성"):
+            compile_search(onto, "Customer", properties=["age"])

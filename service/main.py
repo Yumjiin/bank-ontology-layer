@@ -12,7 +12,8 @@ from typing import Literal
 
 from fastapi import FastAPI, Header, HTTPException, Request
 
-from metadata import load_ontology
+from compiler import check_default_filters
+from metadata import OntologyError, load_ontology
 from schemas import ActionRequest, LinkRequest, MetricRequest, SearchRequest
 
 ONTOLOGY_PATH = os.environ.get("ONTOLOGY_PATH", "/app/ontology/ontology.yaml")
@@ -22,7 +23,11 @@ RoleHeader = Literal["teller", "marketer", "manager"]
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 정의에 오류가 있으면 여기서 예외가 나며 서비스가 뜨지 않음 (설계서 4-3)
-    app.state.ontology = load_ontology(ONTOLOGY_PATH)
+    ontology = load_ontology(ONTOLOGY_PATH)
+    errors = check_default_filters(ontology)
+    if errors:
+        raise OntologyError("default_filters 검증 실패:\n- " + "\n- ".join(errors))
+    app.state.ontology = ontology
     yield
 
 
