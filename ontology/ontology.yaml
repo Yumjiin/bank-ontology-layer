@@ -40,7 +40,7 @@ object_types:
       acct_no: { column: acct_no }
       status:
         column: acct_stat_cd
-        values: { A: 활성, D: 휴면, C: 해지 }
+        values: { A: 활성, D: 휴면, C: 해지, F: 지급정지 }   # F: freeze_account 승인·실행 시 설정되는 상태
       branch_cd: { column: brnc_cd }
       product:
         column: prod_cd
