@@ -1,6 +1,7 @@
 """Ontology Service (FastAPI).
 
-현재 상태: /health, /ontology 동작. 나머지 엔드포인트는 계약(요청 형식)만 정의하고 501을 반환함.
+현재 상태: /health, /ontology, /objects/search, /objects/{type}/{id} 동작.
+나머지 엔드포인트는 계약(요청 형식)만 정의하고 501을 반환함.
 응답 형식은 docs/fixtures/의 예시 JSON을 따름.
 """
 
@@ -11,8 +12,12 @@ from contextlib import asynccontextmanager
 from typing import Literal
 
 from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import OperationalError
 
-from metadata import load_ontology
+import query
+from compiler import CompileError, check_default_filters
+from metadata import OntologyError, load_ontology
 from schemas import ActionRequest, LinkRequest, MetricRequest, SearchRequest
 
 ONTOLOGY_PATH = os.environ.get("ONTOLOGY_PATH", "/app/ontology/ontology.yaml")
@@ -22,11 +27,41 @@ RoleHeader = Literal["teller", "marketer", "manager"]
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 정의에 오류가 있으면 여기서 예외가 나며 서비스가 뜨지 않음 (설계서 4-3)
-    app.state.ontology = load_ontology(ONTOLOGY_PATH)
+    ontology = load_ontology(ONTOLOGY_PATH)
+    errors = check_default_filters(ontology)
+    if errors:
+        raise OntologyError("default_filters 검증 실패:\n- " + "\n- ".join(errors))
+    app.state.ontology = ontology
+    engine = query.make_engine()
+    app.state.engine = engine
     yield
+    engine.dispose()  # app.state.engine이 바뀌었더라도(테스트 등) 직접 만든 엔진만 정리함
 
 
 app = FastAPI(title="Bank Ontology Service", version="0.1.0", lifespan=lifespan)
+
+
+# ---------------------------------------------------------------
+# 오류 응답
+# 에이전트가 읽고 다시 시도할 수 있게 code와 message를 함께 돌려줌 (docs/api-contract.md 오류 응답)
+# ---------------------------------------------------------------
+
+@app.exception_handler(CompileError)
+async def handle_compile_error(request: Request, exc: CompileError):
+    return JSONResponse(status_code=400, content={"detail": {"code": "INVALID_REQUEST", "message": str(exc)}})
+
+
+@app.exception_handler(query.NotFoundError)
+async def handle_not_found(request: Request, exc: query.NotFoundError):
+    return JSONResponse(status_code=404, content={"detail": {"code": "NOT_FOUND", "message": str(exc)}})
+
+
+@app.exception_handler(OperationalError)
+async def handle_db_unavailable(request: Request, exc: OperationalError):
+    return JSONResponse(
+        status_code=503,
+        content={"detail": {"code": "DB_UNAVAILABLE", "message": "DB에 연결할 수 없음. db 컨테이너와 DATABASE_URL을 확인"}},
+    )
 
 
 def not_implemented(name: str):
@@ -46,20 +81,23 @@ def get_ontology(request: Request):
 @app.post("/objects/search")
 def search_objects(
     body: SearchRequest,
+    request: Request,
     x_role: RoleHeader = Header(...),
     x_session_id: str = Header(...),
 ):
-    not_implemented("search_objects")
+    # x_role은 #5 policy에서, x_session_id는 #17 실행 기록에서 사용함
+    return query.search_objects(request.app.state.engine, request.app.state.ontology, body)
 
 
 @app.get("/objects/{object_type}/{object_id}")
 def get_object(
     object_type: str,
     object_id: str,
+    request: Request,
     x_role: RoleHeader = Header(...),
     x_session_id: str = Header(...),
 ):
-    not_implemented("get_object")
+    return query.get_object(request.app.state.engine, request.app.state.ontology, object_type, object_id)
 
 
 @app.post("/objects/{object_type}/{object_id}/links/{link}")

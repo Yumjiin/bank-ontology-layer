@@ -1,0 +1,56 @@
+# 테스트 전용 온톨로지.
+# 실제 ontology/ontology.yaml은 지영님이 컬럼명을 바꾸면서 계속 변하므로,
+# compiler 테스트는 이 고정된 파일로 함. compiler 동작을 바꾸지 않는 한 수정하지 않음.
+
+version: "test"
+
+object_types:
+  Customer:
+    table: cust
+    primary_key: cust_no
+    properties:
+      cust_no: { column: cust_no }
+      name: { column: cust_nm, sensitivity: PII }
+      grade:
+        column: cust_grd_cd
+        values: { "01": VIP, "02": 일반 }
+
+  Account:
+    table: acct
+    primary_key: acct_no
+    properties:
+      acct_no: { column: acct_no }
+      status:
+        column: acct_stat_cd
+        values: { A: 활성, D: 휴면, C: 해지 }
+
+  Transaction:
+    table: txn
+    primary_key: txn_no
+    properties:
+      txn_no: { column: txn_no, type: number }
+      acct_no: { column: acct_no }
+      date: { column: txn_dt, type: date, format: YYYYMMDD }
+      type:
+        column: txn_cd
+        values: { IN: 입금, OUT: 출금, INT: 이자, FEE: 수수료 }
+      amount: { column: amt, type: number }
+      cancelled:
+        column: cncl_yn
+        values: { "Y": "true", "N": "false" }
+    default_filters:
+      - "cancelled = false"
+
+link_types:
+  owns:
+    from: Customer
+    to: Account
+    via: { table: acct_rel, from_key: cust_no, to_key: acct_no, condition: "rel_cd = '01'" }
+  has_transaction:
+    from: Account
+    to: Transaction
+    join: { from_key: acct_no, to_key: acct_no }
+
+roles:
+  teller: { mask: [], block: [] }
+  marketer: { mask: [PII], block: [] }

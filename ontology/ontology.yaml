@@ -52,7 +52,7 @@ object_types:
     primary_key: txn_id                                    # 실제 DB 컬럼명
     description: 계좌에서 발생한 입출금·이자·수수료 거래
     properties:
-      txn_no: { column: txn_id }                           # 속성명(txn_no)은 유지, 컬럼만 실제 이름으로 매핑
+      txn_no: { column: txn_id, type: number }             # 속성명(txn_no)은 유지, 컬럼만 실제 이름으로 매핑 (DB가 INTEGER라 number 필수)
       acct_no: { column: acct_no }
       date: { column: txn_dt, type: date, format: YYYYMMDD }
       time: { column: txn_tm }                             # 'HHMMSS' 문자열

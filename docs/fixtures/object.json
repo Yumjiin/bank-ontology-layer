@@ -1,0 +1,14 @@
+{
+  "object_type": "Branch",
+  "item": {
+    "brnc_cd": "B001",
+    "name": "강남지점",
+    "region": "서울",
+    "open_date": "1998-03-02",
+    "staff_count": 24,
+    "type": "일반지점"
+  },
+  "policy": { "masked": [], "blocked": [] },
+  "sql": "SELECT brnc.brnc_cd, brnc.attr1, brnc.attr2, brnc.attr3, brnc.attr4, brnc.attr5 \nFROM brnc \nWHERE brnc.brnc_cd = 'B001' ORDER BY brnc.brnc_cd \n LIMIT 1",
+  "trace_id": "t-41fb496edf5d"
+}
