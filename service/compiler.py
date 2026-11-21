@@ -269,6 +269,7 @@ def compile_search(
     filters: list[Filter] | None = None,
     properties: list[str] | None = None,
     limit: int = 20,
+    apply_defaults: bool = True,
 ) -> Select:
     """객체 검색 요청을 SELECT 문으로 바꿈.
 
@@ -276,6 +277,8 @@ def compile_search(
     - 결과를 식별할 수 있게 기본 키 속성은 항상 포함함
     - 결과 순서가 실행마다 바뀌지 않게 기본 키로 정렬함 (시연·평가 재현성)
     - 결과 컬럼은 원천 컬럼명 그대로이며, decode_row로 사람이 쓰는 값으로 바꿈
+    - apply_defaults=False: 기본 필터를 적용하지 않음. ID로 한 건을 조회할 때 사용
+      (취소된 거래도 ID로 찍어서 조회하면 보여야 하므로)
     """
     obj = get_object_type(ontology, obj_name)
     tbl = to_table(obj)
@@ -288,7 +291,9 @@ def compile_search(
         selected.insert(0, pk)
 
     columns = [tbl.c[obj.properties[name].column] for name in selected]
-    conditions = build_conditions(ontology, obj_name, effective_filters(ontology, obj_name, filters or []), tbl)
+    requested = filters or []
+    final_filters = effective_filters(ontology, obj_name, requested) if apply_defaults else list(requested)
+    conditions = build_conditions(ontology, obj_name, final_filters, tbl)
 
     stmt = select(*columns).select_from(tbl)
     if conditions:

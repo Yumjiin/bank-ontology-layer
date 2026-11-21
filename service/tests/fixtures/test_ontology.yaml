@@ -28,7 +28,7 @@ object_types:
     table: txn
     primary_key: txn_no
     properties:
-      txn_no: { column: txn_no }
+      txn_no: { column: txn_no, type: number }
       acct_no: { column: acct_no }
       date: { column: txn_dt, type: date, format: YYYYMMDD }
       type:

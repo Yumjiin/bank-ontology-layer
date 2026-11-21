@@ -1,0 +1,6 @@
+{
+  "detail": {
+    "code": "INVALID_REQUEST",
+    "message": "Transaction.type: 정의에 없는 값 'DEPOSIT'. 사용 가능: 입금, 출금, 이자, 수수료"
+  }
+}
