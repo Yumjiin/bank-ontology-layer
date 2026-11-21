@@ -1,8 +1,8 @@
 # Bank Ontology v0.1
 #
 # 구조(키 이름과 형식)는 지인이 관리하고, 실제 매핑 내용은 지영이 채움.
-# 아래 값 중 "TODO(지영)" 표시는 발표 데모의 generate_mock_data.py,
-# semantic_definitions.yaml 기준으로 실제 컬럼명·코드값으로 바꿔야 함.
+# 매핑 내용은 발표 데모의 generate_mock_data.py(테이블 구조)와
+# semantic_definitions.yaml(코드값·정의) 기준으로 작성함.
 #
 # 키 설명
 #   object_types   현실의 대상 ↔ 원천 테이블
@@ -40,7 +40,7 @@ object_types:
       acct_no: { column: acct_no }
       status:
         column: acct_stat_cd
-        values: { A: 활성, D: 휴면, C: 해지 }
+        values: { A: 활성, D: 휴면, C: 해지, F: 지급정지 }   # F: freeze_account 승인·실행 시 설정되는 상태
       branch_cd: { column: brnc_cd }
       product:
         column: prod_cd
