@@ -21,7 +21,12 @@ def request_completion(messages: list[dict]) -> dict:
     response = requests.post(
         "https://api.openai.com/v1/chat/completions",
         headers={"Authorization": f"Bearer {api_key}"},
-        json={"model": model, "messages": messages, "tools": TOOLS},
+        json={
+            "model": model,
+            "messages": messages,
+            "tools": TOOLS,
+            "reasoning_effort": "none",
+        },
         timeout=30,
     )
     response.raise_for_status()
