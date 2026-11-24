@@ -1,17 +1,245 @@
 # 평가 질문셋 (담당: 지영)
-# answer는 정답 SQL을 DB에서 실행한 결과 값으로 기록함.
+# answer는 정답 SQL을 DB(PostgreSQL, seed 적재 직후 상태)에서 실행한 결과 값으로 기록함.
+#
+# 문항 설계 기준
+# - A·B·C 세 조건 모두 답할 수 있는 질문만 포함 (C는 온톨로지 도구로 표현 가능한 질문)
+# - 정답은 숫자 하나 위주 (자동 채점용). 개수 답은 검색 도구 limit(최대 200) 이하
+# - tags 첫 값은 C에서 쓰일 도구 유형(metric: get_metric, search: search_objects, link: get_linked_objects),
+#   나머지는 시험하는 함정: 날짜, 시스템거래(이자·수수료), 취소, 명의인, 금액방향, 코드값, attr, 등급
+# - 대조군: 함정을 몰라도(가장 단순한 SQL로도) 정답이 나오는 문항
+#
+# 참고: q12(등급)는 발표 정의 문서(semantic_definitions.yaml)에 등급 정의가 없어,
+#       조건 B 프롬프트에 cust_grd_cd 정의(01 VIP, 02 일반)를 추가해야 공정함
 
 questions:
   - id: q01
     question: 2026년 3분기(7~9월) 활성 고객 수는?
     answer: 165
     answer_sql: |
-      -- TODO(지영): 발표 데모 check_answer.py의 정답 SQL 이관
-    tags: [metric, 정의필요]
+      SELECT COUNT(DISTINCT r.cust_no)
+      FROM txn t
+      JOIN acct_rel r ON t.acct_no = r.acct_no AND r.rel_cd = '01'
+      WHERE t.txn_cd IN ('IN', 'OUT')
+        AND t.cncl_yn = 'N'
+        AND t.txn_dt BETWEEN '20260701' AND '20260930'
+    tags: [metric, 날짜, 시스템거래, 취소, 명의인]
 
   - id: q02
     question: 2026년 9월 순입금액은?
     answer: 389638000
     answer_sql: |
-      -- TODO(지영)
-    tags: [metric, 코드값, 취소거래]
+      SELECT SUM(CASE WHEN txn_cd = 'IN' THEN amt
+                      WHEN txn_cd = 'OUT' THEN -amt ELSE 0 END)
+      FROM txn
+      WHERE cncl_yn = 'N'
+        AND txn_dt BETWEEN '20260901' AND '20260930'
+    tags: [metric, 날짜, 시스템거래, 취소, 금액방향]
+
+  - id: q03
+    question: 2026년 상반기(1~6월) 활성 고객 수는?
+    answer: 234
+    answer_sql: |
+      SELECT COUNT(DISTINCT r.cust_no)
+      FROM txn t
+      JOIN acct_rel r ON t.acct_no = r.acct_no AND r.rel_cd = '01'
+      WHERE t.txn_cd IN ('IN', 'OUT')
+        AND t.cncl_yn = 'N'
+        AND t.txn_dt BETWEEN '20260101' AND '20260630'
+    tags: [metric, 날짜, 시스템거래, 취소, 명의인]
+
+  - id: q04
+    question: 2026년 7월 활성 고객 수는?
+    answer: 164
+    answer_sql: |
+      SELECT COUNT(DISTINCT r.cust_no)
+      FROM txn t
+      JOIN acct_rel r ON t.acct_no = r.acct_no AND r.rel_cd = '01'
+      WHERE t.txn_cd IN ('IN', 'OUT')
+        AND t.cncl_yn = 'N'
+        AND t.txn_dt BETWEEN '20260701' AND '20260731'
+    tags: [metric, 날짜, 시스템거래, 취소, 명의인]
+
+  - id: q05
+    question: 2026년 8월 순입금액은?
+    answer: 398491000
+    answer_sql: |
+      SELECT SUM(CASE WHEN txn_cd = 'IN' THEN amt
+                      WHEN txn_cd = 'OUT' THEN -amt ELSE 0 END)
+      FROM txn
+      WHERE cncl_yn = 'N'
+        AND txn_dt BETWEEN '20260801' AND '20260831'
+    tags: [metric, 날짜, 시스템거래, 취소, 금액방향]
+
+  - id: q06
+    question: 2026년 1분기(1~3월) 순입금액은?
+    answer: 1501034000
+    answer_sql: |
+      SELECT SUM(CASE WHEN txn_cd = 'IN' THEN amt
+                      WHEN txn_cd = 'OUT' THEN -amt ELSE 0 END)
+      FROM txn
+      WHERE cncl_yn = 'N'
+        AND txn_dt BETWEEN '20260101' AND '20260331'
+    tags: [metric, 날짜, 시스템거래, 취소, 금액방향]
+
+  - id: q07
+    question: 2026년 3분기(7~9월) 모바일뱅킹 순입금액은?
+    answer: 578305000
+    answer_sql: |
+      SELECT SUM(CASE WHEN txn_cd = 'IN' THEN amt
+                      WHEN txn_cd = 'OUT' THEN -amt ELSE 0 END)
+      FROM txn
+      WHERE cncl_yn = 'N'
+        AND chnl_cd = '04'
+        AND txn_dt BETWEEN '20260701' AND '20260930'
+    tags: [metric, 날짜, 시스템거래, 취소, 금액방향, 코드값]
+
+  - id: q08
+    question: 2026년 9월 창구 순입금액은?
+    answer: 69872000
+    answer_sql: |
+      SELECT SUM(CASE WHEN txn_cd = 'IN' THEN amt
+                      WHEN txn_cd = 'OUT' THEN -amt ELSE 0 END)
+      FROM txn
+      WHERE cncl_yn = 'N'
+        AND chnl_cd = '01'
+        AND txn_dt BETWEEN '20260901' AND '20260930'
+    tags: [metric, 날짜, 시스템거래, 취소, 금액방향, 코드값]
+
+  - id: q09
+    question: 여성 고객 수는?
+    answer: 173
+    answer_sql: |
+      SELECT COUNT(*) FROM cust WHERE sex_cd = '2'
+    tags: [search, 코드값]
+
+  - id: q10
+    question: 2020년 이후(2020-01-01 포함) 가입한 고객 수는?
+    answer: 110
+    answer_sql: |
+      SELECT COUNT(*) FROM cust WHERE join_ymd >= '20200101'
+    tags: [search, 날짜]
+
+  - id: q11
+    question: 1990년대생(1990~1999년 출생) 고객 수는?
+    answer: 73
+    answer_sql: |
+      SELECT COUNT(*) FROM cust WHERE birth_ymd BETWEEN '19900101' AND '19991231'
+    tags: [search, 날짜]
+
+  - id: q12
+    question: VIP 고객 수는?
+    answer: 65
+    answer_sql: |
+      SELECT COUNT(*) FROM cust WHERE cust_grd_cd = '01'
+    tags: [search, 등급, 코드값]
+
+  - id: q13
+    question: 휴면 계좌 수는?
+    answer: 36
+    answer_sql: |
+      SELECT COUNT(*) FROM acct WHERE acct_stat_cd = 'D'
+    tags: [search, 코드값]
+
+  - id: q14
+    question: 해지된 계좌 수는?
+    answer: 22
+    answer_sql: |
+      SELECT COUNT(*) FROM acct WHERE acct_stat_cd = 'C'
+    tags: [search, 코드값]
+
+  - id: q15
+    question: 정기적금 계좌 수는?
+    answer: 47
+    answer_sql: |
+      SELECT COUNT(*) FROM acct WHERE prod_cd = 'SV01'
+    tags: [search, 코드값]
+
+  - id: q16
+    question: 2020년 이후(2020-01-01 포함) 개설된 계좌 수는?
+    answer: 136
+    answer_sql: |
+      SELECT COUNT(*) FROM acct WHERE open_ymd >= '20200101'
+    tags: [search, 날짜]
+
+  - id: q17
+    question: 2026년 9월에 취소된 거래 건수는?
+    answer: 28
+    answer_sql: |
+      SELECT COUNT(*) FROM txn WHERE cncl_yn = 'Y' AND txn_dt BETWEEN '20260901' AND '20260930'
+    tags: [search, 날짜, 취소]
+
+  - id: q18
+    question: 서울 지역 지점 수는?
+    answer: 3
+    answer_sql: |
+      SELECT COUNT(*) FROM brnc WHERE attr2 = '11'
+    tags: [search, attr, 코드값]
+
+  - id: q19
+    question: 직원이 20명 이상인 지점 수는?
+    answer: 3
+    answer_sql: |
+      SELECT COUNT(*) FROM brnc WHERE attr4 >= 20
+    tags: [search, attr]
+
+  - id: q20
+    question: 출장소는 몇 곳인가?
+    answer: 1
+    answer_sql: |
+      SELECT COUNT(*) FROM brnc WHERE attr5 = '02'
+    tags: [search, attr, 코드값]
+
+  - id: q21
+    question: 고객 C00003이 명의인인 계좌 수는?
+    answer: 2
+    answer_sql: |
+      SELECT COUNT(*) FROM acct_rel WHERE cust_no = 'C00003' AND rel_cd = '01'
+    tags: [link, 대조군]
+
+  - id: q22
+    question: 고객 C00012가 대리인으로 등록된 계좌 수는?
+    answer: 1
+    answer_sql: |
+      SELECT COUNT(*) FROM acct_rel WHERE cust_no = 'C00012' AND rel_cd = '02'
+    tags: [link, 명의인]
+
+  - id: q23
+    question: 계좌 110-000001의 2026년 9월 입금 건수는?
+    answer: 4
+    answer_sql: |
+      SELECT COUNT(*) FROM txn
+      WHERE acct_no = '110-000001'
+        AND txn_cd = 'IN'
+        AND cncl_yn = 'N'
+        AND txn_dt BETWEEN '20260901' AND '20260930'
+    tags: [link, 날짜, 시스템거래, 취소]
+
+  - id: q24
+    question: 계좌 110-000001이 속한 지점 이름은?
+    answer: "강남지점"
+    answer_sql: |
+      SELECT b.attr1 FROM acct a
+      JOIN brnc b ON a.brnc_cd = b.brnc_cd
+      WHERE a.acct_no = '110-000001'
+    tags: [link, attr]
+
+  - id: q25
+    question: 전체 지점 수는?
+    answer: 8
+    answer_sql: |
+      SELECT COUNT(*) FROM brnc
+    tags: [search, 대조군]
+
+  - id: q26
+    question: 계좌 110-000001의 지점 코드는?
+    answer: "B001"
+    answer_sql: |
+      SELECT brnc_cd FROM acct WHERE acct_no = '110-000001'
+    tags: [search, 대조군]
+
+  - id: q27
+    question: 고객 C00001의 이름은?
+    answer: "송채원"
+    answer_sql: |
+      SELECT cust_nm FROM cust WHERE cust_no = 'C00001'
+    tags: [search, 대조군]
