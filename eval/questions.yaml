@@ -45,7 +45,7 @@ questions:
       WHERE t.txn_cd IN ('IN', 'OUT')
         AND t.cncl_yn = 'N'
         AND t.txn_dt BETWEEN '20260101' AND '20260630'
-    tags: [metric, 날짜, 시스템거래, 취소, 명의인]
+    tags: [metric, 날짜, 시스템거래, 명의인]
 
   - id: q04
     question: 2026년 7월 활성 고객 수는?
@@ -91,7 +91,7 @@ questions:
       WHERE cncl_yn = 'N'
         AND chnl_cd = '04'
         AND txn_dt BETWEEN '20260701' AND '20260930'
-    tags: [metric, 날짜, 시스템거래, 취소, 금액방향, 코드값]
+    tags: [metric, 날짜, 취소, 금액방향, 코드값]
 
   - id: q08
     question: 2026년 9월 창구 순입금액은?
@@ -103,7 +103,7 @@ questions:
       WHERE cncl_yn = 'N'
         AND chnl_cd = '01'
         AND txn_dt BETWEEN '20260901' AND '20260930'
-    tags: [metric, 날짜, 시스템거래, 취소, 금액방향, 코드값]
+    tags: [metric, 날짜, 취소, 금액방향, 코드값]
 
   - id: q09
     question: 여성 고객 수는?
@@ -113,10 +113,10 @@ questions:
     tags: [search, 코드값]
 
   - id: q10
-    question: 2020년 이후(2020-01-01 포함) 가입한 고객 수는?
-    answer: 110
+    question: 2020년에 가입한 고객 수는?
+    answer: 20
     answer_sql: |
-      SELECT COUNT(*) FROM cust WHERE join_ymd >= '20200101'
+      SELECT COUNT(*) FROM cust WHERE join_ymd BETWEEN '20200101' AND '20201231'
     tags: [search, 날짜]
 
   - id: q11
@@ -155,10 +155,10 @@ questions:
     tags: [search, 코드값]
 
   - id: q16
-    question: 2020년 이후(2020-01-01 포함) 개설된 계좌 수는?
-    answer: 136
+    question: 2020년에 개설된 계좌 수는?
+    answer: 27
     answer_sql: |
-      SELECT COUNT(*) FROM acct WHERE open_ymd >= '20200101'
+      SELECT COUNT(*) FROM acct WHERE open_ymd BETWEEN '20200101' AND '20201231'
     tags: [search, 날짜]
 
   - id: q17
@@ -183,10 +183,10 @@ questions:
     tags: [search, attr]
 
   - id: q20
-    question: 출장소는 몇 곳인가?
-    answer: 1
+    question: 인천 지역 지점 수는?
+    answer: 3
     answer_sql: |
-      SELECT COUNT(*) FROM brnc WHERE attr5 = '02'
+      SELECT COUNT(*) FROM brnc WHERE attr2 = '28'
     tags: [search, attr, 코드값]
 
   - id: q21
@@ -197,10 +197,10 @@ questions:
     tags: [link, 대조군]
 
   - id: q22
-    question: 고객 C00012가 대리인으로 등록된 계좌 수는?
-    answer: 1
+    question: 고객 C00086이 대리인으로 등록된 계좌 번호는?
+    answer: "110-000127"
     answer_sql: |
-      SELECT COUNT(*) FROM acct_rel WHERE cust_no = 'C00012' AND rel_cd = '02'
+      SELECT acct_no FROM acct_rel WHERE cust_no = 'C00086' AND rel_cd = '02'
     tags: [link, 명의인]
 
   - id: q23
@@ -212,7 +212,7 @@ questions:
         AND txn_cd = 'IN'
         AND cncl_yn = 'N'
         AND txn_dt BETWEEN '20260901' AND '20260930'
-    tags: [link, 날짜, 시스템거래, 취소]
+    tags: [link, 날짜, 시스템거래]
 
   - id: q24
     question: 계좌 110-000001이 속한 지점 이름은?
