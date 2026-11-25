@@ -31,3 +31,28 @@ def test_metric_path_must_follow_links():
     raw["metrics"]["active_customers"]["path"] = ["has_transaction"]  # Customer에서 시작할 수 없는 링크
     errors = Ontology.model_validate(raw).reference_errors()
     assert any("active_customers" in e for e in errors)
+
+
+def _broken(mutate):
+    raw = yaml.safe_load(ONTOLOGY_PATH.read_text(encoding="utf-8"))
+    mutate(raw)
+    return Ontology.model_validate(raw).reference_errors()
+
+
+def test_via_condition_must_be_simple_equality():
+    # 임의 SQL을 막기 위해 "컬럼 = '값'" 형식만 허용함
+    def mutate(raw):
+        raw["link_types"]["owns"]["via"]["condition"] = "rel_cd = '01' OR 1=1"
+    assert any("via.condition" in e for e in _broken(mutate))
+
+
+def test_metric_period_must_be_date():
+    def mutate(raw):
+        raw["metrics"]["net_deposit"]["period"] = "Transaction.amount"
+    assert any("date 타입" in e for e in _broken(mutate))
+
+
+def test_metric_property_must_be_on_path():
+    def mutate(raw):
+        raw["metrics"]["net_deposit"]["measure"]["property"] = "Customer.cust_no"
+    assert any("지표 경로" in e for e in _broken(mutate))

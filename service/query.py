@@ -11,15 +11,26 @@ from __future__ import annotations
 
 import os
 import uuid
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.sql.expression import Select
 
-from compiler import compile_search, decode_row, get_object_type, primary_key_property
+from compiler import (
+    compile_link,
+    compile_link_count,
+    compile_metric,
+    compile_search,
+    compile_search_count,
+    decode_row,
+    get_link,
+    get_object_type,
+    primary_key_property,
+)
 from metadata import Ontology
-from schemas import Filter, SearchRequest
+from schemas import Filter, LinkRequest, MetricRequest, SearchRequest
 
 DEFAULT_DATABASE_URL = "postgresql://bank:bank@localhost:5433/bank"
 
@@ -73,25 +84,26 @@ def empty_policy() -> dict[str, list[str]]:
 def search_objects(engine: Engine, ontology: Ontology, req: SearchRequest) -> dict[str, Any]:
     """POST /objects/search 처리.
 
-    limit보다 1건 더 조회해 결과가 잘렸는지(has_more) 알려줌.
-    에이전트가 "20명"을 전체 결과로 오해하지 않고, 필터를 좁히거나 지표(get_metric)를 쓰도록 판단할 수 있게 하기 위함.
+    total: limit과 관계없이 조건에 맞는 전체 개수. "몇 명/몇 건" 질문은 이 값으로 답함
+    has_more: total이 반환한 개수보다 많으면 true (결과가 잘렸다는 뜻)
     """
     obj = get_object_type(ontology, req.object_type)
-    stmt = compile_search(ontology, req.object_type, req.filters, req.properties, limit=req.limit + 1)
+    stmt = compile_search(ontology, req.object_type, req.filters, req.properties, limit=req.limit)
+    count_stmt = compile_search_count(ontology, req.object_type, req.filters)
 
     with engine.connect() as conn:
         rows = [dict(r) for r in conn.execute(stmt).mappings()]
+        total = conn.execute(count_stmt).scalar_one()
 
-    has_more = len(rows) > req.limit
-    items = [decode_row(obj, row) for row in rows[: req.limit]]
-
+    items = [decode_row(obj, row) for row in rows]
     return {
         "object_type": req.object_type,
         "count": len(items),
-        "has_more": has_more,
+        "total": total,
+        "has_more": total > len(items),
         "items": items,
         "policy": empty_policy(),
-        "sql": render_sql(compile_search(ontology, req.object_type, req.filters, req.properties, limit=req.limit), engine),
+        "sql": render_sql(stmt, engine),
         "trace_id": new_trace_id(),
     }
 
@@ -118,6 +130,69 @@ def get_object(engine: Engine, ontology: Ontology, object_type: str, object_id: 
         "object_type": object_type,
         "item": decode_row(obj, dict(row)),
         "policy": empty_policy(),
+        "sql": render_sql(stmt, engine),
+        "trace_id": new_trace_id(),
+    }
+
+
+# ---------------------------------------------------------------
+# 링크 탐색
+# ---------------------------------------------------------------
+
+def get_linked_objects(
+    engine: Engine, ontology: Ontology, object_type: str, object_id: str, link_name: str, req: LinkRequest
+) -> dict[str, Any]:
+    """POST /objects/{type}/{id}/links/{link} 처리. 기준 객체가 없으면 404."""
+    link = get_link(ontology, link_name, from_obj=object_type)
+    get_object(engine, ontology, object_type, object_id)  # 기준 객체 존재 확인 (없으면 NotFoundError)
+
+    stmt = compile_link(ontology, object_type, object_id, link_name, req.filters, req.properties, req.limit)
+    count_stmt = compile_link_count(ontology, object_type, object_id, link_name, req.filters)
+    with engine.connect() as conn:
+        rows = [dict(r) for r in conn.execute(stmt).mappings()]
+        total = conn.execute(count_stmt).scalar_one()
+
+    dst = ontology.object_types[link.to]
+    items = [decode_row(dst, row) for row in rows]
+    return {
+        "from": {"object_type": object_type, "id": object_id},
+        "link": link_name,
+        "object_type": link.to,
+        "count": len(items),
+        "total": total,
+        "has_more": total > len(items),
+        "items": items,
+        "policy": empty_policy(),
+        "sql": render_sql(stmt, engine),
+        "trace_id": new_trace_id(),
+    }
+
+
+# ---------------------------------------------------------------
+# 지표 계산
+# ---------------------------------------------------------------
+
+def _to_number(value: Any) -> Any:
+    """PostgreSQL SUM 결과(Decimal)를 JSON에 맞는 int/float로 바꿈."""
+    if isinstance(value, Decimal):
+        return int(value) if value == value.to_integral_value() else float(value)
+    return value
+
+
+def get_metric(engine: Engine, ontology: Ontology, name: str, req: MetricRequest) -> dict[str, Any]:
+    """POST /metrics/{name} 처리. 계산 규칙은 ontology.yaml의 metrics 정의를 따름."""
+    stmt = compile_metric(ontology, name, req.period.start, req.period.end, req.filters)
+    with engine.connect() as conn:
+        value = conn.execute(stmt).scalar_one()
+
+    metric = ontology.metrics[name]
+    return {
+        "metric": name,
+        "description": metric.description,
+        "period": {"start": req.period.start, "end": req.period.end},
+        "filters": [f.model_dump() for f in req.filters],
+        "value": _to_number(value),
+        "unit": metric.unit,
         "sql": render_sql(stmt, engine),
         "trace_id": new_trace_id(),
     }

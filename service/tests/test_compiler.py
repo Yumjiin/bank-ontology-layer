@@ -227,3 +227,42 @@ class TestSearch:
     def test_unknown_property_in_select(self, onto):
         with pytest.raises(CompileError, match="속성"):
             compile_search(onto, "Customer", properties=["age"])
+
+# ---------------------------------------------------------------
+# 6~8. 개수, 링크, 지표 SQL
+# ---------------------------------------------------------------
+
+from compiler import compile_link, compile_metric, compile_search_count, resolve_property  # noqa: E402
+
+
+class TestLinksAndMetrics:
+    def test_count_uses_same_conditions(self, onto):
+        s = sql(compile_search_count(onto, "Transaction", [Filter(property="type", op="eq", value="입금")]))
+        assert s.startswith("SELECT count(*)") and "txn.txn_cd = 'IN'" in s and "txn.cncl_yn = 'N'" in s
+
+    def test_via_link_join(self, onto):
+        s = sql(compile_link(onto, "Customer", "C01", "owns"))
+        assert "JOIN acct_rel ON acct_rel.cust_no = cust.cust_no AND acct_rel.rel_cd = '01'" in s
+        assert "JOIN acct ON acct.acct_no = acct_rel.acct_no" in s
+
+    def test_active_customers_sql(self, onto):
+        # 발표 데모 정답 SQL과 같은 논리: 명의인만, 입금·출금만, 기간, 취소 제외
+        s = sql(compile_metric(onto, "active_customers", "2026-07-01", "2026-09-30"))
+        assert s.startswith("SELECT count(DISTINCT cust.cust_no)")
+        for part in ["acct_rel.rel_cd = '01'", "txn.txn_cd IN ('IN', 'OUT')",
+                     "txn.txn_dt BETWEEN '20260701' AND '20260930'", "txn.cncl_yn = 'N'"]:
+            assert part in s
+
+    def test_net_deposit_sign(self, onto):
+        s = sql(compile_metric(onto, "net_deposit", "2026-09-01", "2026-09-30"))
+        assert "CASE WHEN (txn.txn_cd IN ('OUT')) THEN -txn.amt ELSE txn.amt END" in s
+
+    def test_ambiguous_property_needs_object_prefix(self, onto):
+        # acct_no는 Account와 Transaction 모두에 있어서 객체를 붙여야 함
+        with pytest.raises(CompileError, match="객체를 붙여"):
+            resolve_property(onto, ["Customer", "Account", "Transaction"], "acct_no")
+        assert resolve_property(onto, ["Customer", "Account", "Transaction"], "Account.acct_no") == ("Account", "acct_no")
+
+    def test_unknown_metric(self, onto):
+        with pytest.raises(CompileError, match="active_customers"):
+            compile_metric(onto, "churn_rate", "2026-01-01", "2026-01-31")

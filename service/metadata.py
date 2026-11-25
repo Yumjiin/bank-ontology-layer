@@ -6,7 +6,9 @@ DB 정합성 검증(테이블·컬럼 존재 여부)은 TODO.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -56,14 +58,48 @@ class LinkType(BaseModel):
         return self
 
 
+# link via.condition에 허용하는 형식: "<관계 테이블 컬럼> = '<값>'"  예) "rel_cd = '01'"
+# 임의 SQL을 막기 위해 이 형식만 허용하고, compiler가 파싱해서 바인드 파라미터로 바꿈
+VIA_CONDITION = re.compile(r"^\s*(\w+)\s*=\s*'([^']*)'\s*$")
+
+
+class MetricFilter(BaseModel):
+    """지표 정의에 고정된 조건. property는 "객체.속성", value는 사람이 쓰는 값."""
+
+    property: str
+    op: Literal["eq", "in", "gte", "lte", "between"]
+    value: Any
+
+
+class MetricSign(BaseModel):
+    """합계에서 부호를 뒤집을 조건. 예) 거래 유형이 출금이면 빼기."""
+
+    property: str
+    negative: list[str]
+
+
+class MetricMeasure(BaseModel):
+    agg: Literal["count", "count_distinct", "sum"]
+    property: str | None = None  # count는 생략 가능, count_distinct·sum은 필수
+    sign: MetricSign | None = None
+
+    @model_validator(mode="after")
+    def check_property(self) -> "MetricMeasure":
+        if self.agg != "count" and not self.property:
+            raise ValueError(f"measure.agg가 {self.agg}이면 property가 필요함")
+        if self.sign and self.agg != "sum":
+            raise ValueError("measure.sign은 agg가 sum일 때만 사용함")
+        return self
+
+
 class Metric(BaseModel):
     description: str
     object: str
     path: list[str] = Field(default_factory=list)
-    filters: list[str] = Field(default_factory=list)
-    aggregate: str | None = None
-    expression: str | None = None
-    params: list[str] = Field(default_factory=list)
+    period: str  # period 파라미터를 적용할 날짜 속성 ("객체.속성")
+    filters: list[MetricFilter] = Field(default_factory=list)
+    measure: MetricMeasure
+    unit: str = ""
 
 
 class ActionType(BaseModel):
@@ -88,6 +124,29 @@ class Ontology(BaseModel):
     action_types: dict[str, ActionType] = Field(default_factory=dict)
     roles: dict[str, Role]
 
+    def path_objects(self, metric: Metric) -> list[str]:
+        """지표 경로에 등장하는 객체 타입 목록. 예) active_customers → [Customer, Account, Transaction]"""
+        objects = [metric.object]
+        for step in metric.path:
+            link = self.link_types.get(step)
+            if link is None:
+                break
+            objects.append(link.to)
+        return objects
+
+    def _qualified_property_error(self, where: str, ref: str, allowed: list[str], need_type: str | None = None) -> str | None:
+        obj_name, _, prop_name = ref.partition(".")
+        if not prop_name:
+            return f"{where}: '{ref}'는 '객체.속성' 형식이어야 함"
+        if obj_name not in allowed:
+            return f"{where}: '{obj_name}'는 지표 경로({', '.join(allowed)})에 없는 객체"
+        prop = self.object_types[obj_name].properties.get(prop_name)
+        if prop is None:
+            return f"{where}: {obj_name}에 속성 '{prop_name}'이 없음"
+        if need_type and prop.type != need_type:
+            return f"{where}: {ref}는 {need_type} 타입이어야 함 (현재 {prop.type})"
+        return None
+
     def reference_errors(self) -> list[str]:
         """정의 간 참조 오류 목록을 반환함. 비어 있으면 정상."""
         errors: list[str] = []
@@ -98,9 +157,19 @@ class Ontology(BaseModel):
                 errors.append(f"object_types.{name}: primary_key '{obj.primary_key}'가 properties의 column에 없음")
 
         for name, link in self.link_types.items():
+            missing_side = False
             for side in (link.from_, link.to):
                 if side not in objects:
                     errors.append(f"link_types.{name}: 존재하지 않는 객체 타입 '{side}'")
+                    missing_side = True
+            if missing_side:
+                continue
+            if link.join:
+                for side, key in ((link.from_, link.join.from_key), (link.to, link.join.to_key)):
+                    if key not in {p.column for p in objects[side].properties.values()}:
+                        errors.append(f"link_types.{name}: join 키 '{key}'가 {side}의 속성 컬럼에 없음")
+            if link.via and link.via.condition and not VIA_CONDITION.match(link.via.condition):
+                errors.append(f"link_types.{name}: via.condition '{link.via.condition}'는 \"컬럼 = '값'\" 형식만 허용함")
 
         for name, metric in self.metrics.items():
             if metric.object not in objects:
@@ -115,6 +184,21 @@ class Ontology(BaseModel):
                     errors.append(f"metrics.{name}: 링크 '{step}'는 {link.from_}에서 시작하지만 경로상 현재 객체는 {current}")
                     break
                 current = link.to
+            if metric.object not in objects or any(step not in self.link_types for step in metric.path):
+                continue
+            allowed = self.path_objects(metric)
+            where = f"metrics.{name}"
+            checks = [(f"{where}.period", metric.period, "date")]
+            checks += [(f"{where}.filters", f.property, None) for f in metric.filters]
+            if metric.measure.property:
+                need = "number" if metric.measure.agg == "sum" else None
+                checks.append((f"{where}.measure.property", metric.measure.property, need))
+            if metric.measure.sign:
+                checks.append((f"{where}.measure.sign", metric.measure.sign.property, None))
+            for label, ref, need in checks:
+                err = self._qualified_property_error(label, ref, allowed, need)
+                if err:
+                    errors.append(err)
 
         for name, action in self.action_types.items():
             if action.target not in objects:
@@ -144,7 +228,12 @@ class Ontology(BaseModel):
                 for name, link in self.link_types.items()
             },
             "metrics": {
-                name: {"description": m.description, "params": m.params}
+                name: {
+                    "description": m.description,
+                    "params": ["period"],
+                    "unit": m.unit,
+                    "filterable_objects": self.path_objects(m),  # filters에 쓸 수 있는 객체 (예: Transaction.channel)
+                }
                 for name, m in self.metrics.items()
             },
             "action_types": {

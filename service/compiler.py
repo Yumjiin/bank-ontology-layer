@@ -3,16 +3,16 @@
 LLM은 SQL을 쓰지 않고 "객체 타입 + 속성 + 사람이 쓰는 값"만 보냄.
 이 모듈이 ontology.yaml 정의를 보고 원천 테이블·컬럼·코드값으로 바꿔 SQL 조건을 만듦.
 
-현재 구현 범위 (이슈 #3)
+구현 범위 (이슈 #3, #4)
 1. 값 변환: 사람이 쓰는 값 → 원천 코드      VIP → '01', 입금 → 'IN'
 2. 날짜 변환: ISO 날짜 → 원천 저장 형식      2026-07-01 → '20260701'
 3. 필터 → SQL 조건                           eq, in, gte, lte, between
 4. 기본 필터 자동 적용                       Transaction 조회 시 cncl_yn = 'N'
 5. 객체 검색 SELECT 조립                     compile_search()
 +  역변환: 조회 결과를 사람이 쓰는 값으로     '01' → VIP (policy·응답에서 사용)
-
-다음 단계 (TODO)
-6. 링크 탐색, 지표 계산 (#4)
+6. 전체 개수                                 compile_search_count()
+7. 링크 탐색                                 compile_link()       owns, has_transaction 등
+8. 지표 계산                                 compile_metric()     active_customers, net_deposit
 """
 
 from __future__ import annotations
@@ -21,11 +21,11 @@ import re
 from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import and_, column, select, table
+from sqlalchemy import and_, case, column, func, select, table
 from sqlalchemy.sql.elements import ColumnElement
-from sqlalchemy.sql.expression import Select, TableClause
+from sqlalchemy.sql.expression import FromClause, Select, TableClause
 
-from metadata import ObjectType, Ontology, Property
+from metadata import VIA_CONDITION, ObjectType, Ontology, Property
 from schemas import Filter
 
 
@@ -299,3 +299,203 @@ def compile_search(
     if conditions:
         stmt = stmt.where(and_(*conditions))
     return stmt.order_by(tbl.c[obj.primary_key]).limit(limit)
+
+
+def compile_search_count(
+    ontology: Ontology,
+    obj_name: str,
+    filters: list[Filter] | None = None,
+    apply_defaults: bool = True,
+) -> Select:
+    """compile_search와 같은 조건의 전체 개수. limit과 관계없이 "총 몇 건"인지 알려주기 위함.
+
+    에이전트가 "여성 고객 수는?" 같은 질문에 결과를 전부 받아 세지 않고 total로 답할 수 있게 함.
+    """
+    obj = get_object_type(ontology, obj_name)
+    tbl = to_table(obj)
+    requested = filters or []
+    final_filters = effective_filters(ontology, obj_name, requested) if apply_defaults else list(requested)
+    conditions = build_conditions(ontology, obj_name, final_filters, tbl)
+    stmt = select(func.count()).select_from(tbl)
+    return stmt.where(and_(*conditions)) if conditions else stmt
+
+
+# ---------------------------------------------------------------
+# 7. 링크 탐색
+# ---------------------------------------------------------------
+
+def get_link(ontology: Ontology, link_name: str, from_obj: str | None = None):
+    link = ontology.link_types.get(link_name)
+    if link is None or (from_obj and link.from_ != from_obj):
+        available = [n for n, l in ontology.link_types.items() if not from_obj or l.from_ == from_obj]
+        where = f"{from_obj}에서 출발하는 " if from_obj else ""
+        raise CompileError(f"{where}링크 '{link_name}'가 없음. 사용 가능: {', '.join(available) or '없음'}")
+    return link
+
+
+def join_link(ontology: Ontology, frm: FromClause, tables: dict[str, TableClause], link_name: str) -> FromClause:
+    """현재 FROM 절에 링크 하나만큼 JOIN을 이어 붙이고, 도착 객체의 테이블을 tables에 등록함.
+
+    via:  출발.기본키 = 관계테이블.from_key [AND 관계테이블.조건컬럼 = 값], 도착.기본키 = 관계테이블.to_key
+    join: 출발.from_key = 도착.to_key
+    """
+    link = get_link(ontology, link_name)
+    if link.to in tables:
+        # 같은 테이블이 두 번 나오면 별칭이 필요함. 지금 정의에는 없는 경우라 명확히 거부함
+        raise CompileError(f"링크 '{link_name}': 경로에 {link.to}가 이미 있어 다시 조인할 수 없음")
+    src_obj = ontology.object_types[link.from_]
+    dst_obj = ontology.object_types[link.to]
+    src = tables[link.from_]
+    dst = to_table(dst_obj)
+    tables[link.to] = dst
+
+    if link.via:
+        via_def = link.via
+        cond_col = cond_val = None
+        if via_def.condition:
+            m = VIA_CONDITION.match(via_def.condition)  # 형식은 기동 시 검증됨
+            cond_col, cond_val = m.groups()
+        cols = list(dict.fromkeys([via_def.from_key, via_def.to_key] + ([cond_col] if cond_col else [])))
+        via = table(via_def.table, *(column(c) for c in cols))
+        on_via = via.c[via_def.from_key] == src.c[src_obj.primary_key]
+        if cond_col:
+            on_via = and_(on_via, via.c[cond_col] == cond_val)
+        return frm.join(via, on_via).join(dst, dst.c[dst_obj.primary_key] == via.c[via_def.to_key])
+
+    return frm.join(dst, dst.c[link.join.to_key] == src.c[link.join.from_key])
+
+
+def _link_parts(ontology: Ontology, obj_name: str, obj_id: Any, link_name: str, filters: list[Filter]):
+    """링크 조회와 개수 조회가 공유하는 FROM·WHERE 절."""
+    src_obj = get_object_type(ontology, obj_name)
+    link = get_link(ontology, link_name, from_obj=obj_name)
+    tables: dict[str, TableClause] = {obj_name: to_table(src_obj)}
+    frm = join_link(ontology, tables[obj_name], tables, link_name)
+
+    pk = primary_key_property(obj_name, src_obj)
+    conditions = [build_condition(ontology, obj_name, Filter(property=pk, op="eq", value=obj_id), tables[obj_name])]
+    # 도착 객체의 기본 필터도 적용함 (예: has_transaction으로 거래를 볼 때 취소 거래 제외)
+    conditions += build_conditions(ontology, link.to, effective_filters(ontology, link.to, filters), tables[link.to])
+    return link, tables, frm, conditions
+
+
+def compile_link(
+    ontology: Ontology,
+    obj_name: str,
+    obj_id: Any,
+    link_name: str,
+    filters: list[Filter] | None = None,
+    properties: list[str] | None = None,
+    limit: int = 20,
+) -> Select:
+    """기준 객체 하나에서 링크를 따라간 도착 객체들을 조회함. filters·properties는 도착 객체 기준."""
+    link, tables, frm, conditions = _link_parts(ontology, obj_name, obj_id, link_name, filters or [])
+    dst_obj = ontology.object_types[link.to]
+    dst = tables[link.to]
+    pk = primary_key_property(link.to, dst_obj)
+
+    selected = list(dst_obj.properties) if not properties else list(dict.fromkeys(properties))
+    for name in selected:
+        get_property(link.to, dst_obj, name)
+    if pk not in selected:
+        selected.insert(0, pk)
+
+    columns = [dst.c[dst_obj.properties[name].column] for name in selected]
+    # 관계 테이블에 같은 쌍이 두 번 있어도 결과가 중복되지 않게 DISTINCT
+    stmt = select(*columns).select_from(frm).where(and_(*conditions)).distinct()
+    return stmt.order_by(dst.c[dst_obj.primary_key]).limit(limit)
+
+
+def compile_link_count(
+    ontology: Ontology, obj_name: str, obj_id: Any, link_name: str, filters: list[Filter] | None = None
+) -> Select:
+    link, tables, frm, conditions = _link_parts(ontology, obj_name, obj_id, link_name, filters or [])
+    dst_pk = tables[link.to].c[ontology.object_types[link.to].primary_key]
+    return select(func.count(dst_pk.distinct())).select_from(frm).where(and_(*conditions))
+
+
+# ---------------------------------------------------------------
+# 8. 지표 계산
+# ---------------------------------------------------------------
+
+def resolve_property(ontology: Ontology, objects: list[str], ref: str) -> tuple[str, str]:
+    """"객체.속성" 또는 "속성"을 (객체, 속성)으로 바꿈. 객체를 생략하면 경로에서 그 속성을 가진 유일한 객체를 찾음."""
+    obj_name, _, prop_name = ref.rpartition(".")
+    if obj_name:
+        if obj_name not in objects:
+            raise CompileError(f"'{ref}': 이 지표에서 필터할 수 있는 객체는 {', '.join(objects)}")
+        get_property(obj_name, ontology.object_types[obj_name], prop_name)
+        return obj_name, prop_name
+    owners = [o for o in objects if prop_name in ontology.object_types[o].properties]
+    if len(owners) == 1:
+        return owners[0], prop_name
+    if not owners:
+        allowed = [f"{o}.{p}" for o in objects for p in ontology.object_types[o].properties]
+        raise CompileError(f"속성 '{prop_name}'을 이 지표의 객체에서 찾을 수 없음. 사용 가능: {', '.join(allowed)}")
+    raise CompileError(f"속성 '{prop_name}'이 {', '.join(owners)}에 모두 있음. '{owners[-1]}.{prop_name}'처럼 객체를 붙여 지정")
+
+
+def compile_metric(
+    ontology: Ontology,
+    name: str,
+    start: str,
+    end: str,
+    filters: list[Filter] | None = None,
+) -> Select:
+    """지표 정의(ontology.yaml metrics)를 집계 SELECT로 바꿈. 결과는 value 한 칸.
+
+    조건 = 정의에 고정된 filters + 기간 + 요청 필터 + 경로상 객체의 기본 필터
+    요청 필터는 정의를 덮어쓰지 못함 (예: active_customers에서 type을 이자로 바꿀 수 없음).
+    기본 필터는 정의나 요청이 같은 속성을 지정하면 빠짐 (일반 검색과 같은 규칙).
+    """
+    metric = ontology.metrics.get(name)
+    if metric is None:
+        raise CompileError(f"존재하지 않는 지표 '{name}'. 사용 가능: {', '.join(ontology.metrics) or '없음'}")
+    objects = ontology.path_objects(metric)
+
+    tables: dict[str, TableClause] = {metric.object: to_table(ontology.object_types[metric.object])}
+    frm: FromClause = tables[metric.object]
+    for step in metric.path:
+        frm = join_link(ontology, frm, tables, step)
+
+    # 객체별로 필터를 모은 뒤, 객체마다 기본 필터를 합침
+    per_object: dict[str, list[Filter]] = {o: [] for o in objects}
+
+    def add(ref: str, op: str, value: Any) -> None:
+        o, prop = resolve_property(ontology, objects, ref)
+        per_object[o].append(Filter(property=prop, op=op, value=value))
+
+    for f in metric.filters:
+        add(f.property, f.op, f.value)
+    add(metric.period, "between", [start, end])
+
+    fixed = {resolve_property(ontology, objects, f.property) for f in metric.filters}
+    for f in filters or []:
+        o, prop = resolve_property(ontology, objects, f.property)
+        if (o, prop) in fixed:
+            raise CompileError(f"{name}: {o}.{prop}는 지표 정의에 고정된 조건이라 요청에서 바꿀 수 없음")
+        per_object[o].append(Filter(property=prop, op=f.op, value=f.value))
+
+    conditions = []
+    for o, fs in per_object.items():
+        conditions += build_conditions(ontology, o, effective_filters(ontology, o, fs), tables[o])
+
+    measure = metric.measure
+    if measure.agg == "count":
+        expr = func.count()
+    else:
+        mo, mp = resolve_property(ontology, objects, measure.property)
+        col = tables[mo].c[ontology.object_types[mo].properties[mp].column]
+        if measure.agg == "count_distinct":
+            expr = func.count(col.distinct())
+        else:
+            if measure.sign:
+                so, sp = resolve_property(ontology, objects, measure.sign.property)
+                sprop = ontology.object_types[so].properties[sp]
+                codes = [encode_value(so, sp, sprop, v) for v in measure.sign.negative]
+                scol = tables[so].c[sprop.column]
+                col = case((scol.in_(codes), -col), else_=col)
+            # 해당 기간에 거래가 없으면 SUM은 NULL이므로 0으로 바꿈
+            expr = func.coalesce(func.sum(col), 0)
+
+    return select(expr.label("value")).select_from(frm).where(and_(*conditions))
