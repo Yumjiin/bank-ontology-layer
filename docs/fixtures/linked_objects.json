@@ -1,11 +1,29 @@
 {
-  "from": { "object_type": "Customer", "id": "C0012" },
-  "link": "owns",
-  "object_type": "Account",
-  "count": 1,
-  "items": [
-    { "acct_no": "1002-001-000123", "status": "활성", "branch_cd": "B01" }
-  ],
-  "policy": { "masked": [], "blocked": [] },
-  "trace_id": "t-0002"
+    "from": {
+        "object_type": "Customer",
+        "id": "C00003"
+    },
+    "link": "owns",
+    "object_type": "Account",
+    "count": 2,
+    "total": 2,
+    "has_more": false,
+    "items": [
+        {
+            "acct_no": "110-000003",
+            "status": "활성",
+            "product": "보통예금"
+        },
+        {
+            "acct_no": "110-000004",
+            "status": "활성",
+            "product": "정기적금"
+        }
+    ],
+    "policy": {
+        "masked": [],
+        "blocked": []
+    },
+    "sql": "SELECT DISTINCT acct.acct_no, acct.acct_stat_cd, acct.prod_cd \nFROM cust JOIN acct_rel ON acct_rel.cust_no = cust.cust_no AND acct_rel.rel_cd = '01' JOIN acct ON acct.acct_no = acct_rel.acct_no \nWHERE cust.cust_no = 'C00003' ORDER BY acct.acct_no \n LIMIT 20",
+    "trace_id": "t-eff479650381"
 }
