@@ -1,5 +1,18 @@
 """OpenAI function calling에 제공하는 온톨로지 도구 정의."""
 
+import json
+import os
+from pathlib import Path
+
+import requests
+
+FIXTURES = Path(__file__).resolve().parents[1] / "docs" / "fixtures"
+TOOL_FIXTURES = {
+    "search_objects": "objects_search.json",
+    "get_linked_objects": "linked_objects.json",
+    "get_metric": "metric.json",
+}
+
 FILTERS = {
     "type": "array",
     "description": "서비스가 해석할 필터. 값은 VIP, 입금, YYYY-MM-DD 등 업무 표현으로 보낸다.",
@@ -100,5 +113,34 @@ TOOLS = [
 
 
 def call_tool(name: str, arguments: dict, role: str, session_id: str) -> dict:
-    """도구 호출을 Ontology Service 요청으로 바꾸는 진입점."""
-    raise NotImplementedError("TODO(수민)")
+    """온톨로지 메타데이터와 개발용 예시 응답을 반환한다."""
+    if name == "describe_ontology":
+        api_url = os.getenv("ONTOLOGY_API_URL", "http://localhost:8001").rstrip("/")
+        response = requests.get(
+            f"{api_url}/ontology",
+            headers={"X-Role": role, "X-Session-Id": session_id},
+            timeout=5,
+        )
+        response.raise_for_status()
+        return response.json()
+
+    if name == "request_action":
+        if arguments.get("action_type") != "freeze_account":
+            return {"detail": "지원하는 액션은 freeze_account입니다."}
+        filename = "action_pending.json" if role == "manager" else "action_forbidden.json"
+    else:
+        filename = TOOL_FIXTURES.get(name)
+        if filename is None:
+            return {"detail": f"지원하지 않는 도구입니다: {name}"}
+
+    result = json.loads((FIXTURES / filename).read_text(encoding="utf-8"))
+    if filename == "action_forbidden.json":
+        result["detail"]["role"] = role
+        result["detail"]["message"] = f"{role} 역할은 freeze_account를 요청할 수 없습니다. 허용 역할: manager"
+    if name == "get_metric" and (
+        arguments.get("name") != result["metric"]
+        or arguments.get("period") != result["period"]
+        or arguments.get("filters")
+    ):
+        return {"detail": "지표 예시는 필터 없는 2026년 3분기 active_customers만 제공합니다."}
+    return result

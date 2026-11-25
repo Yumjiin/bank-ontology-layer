@@ -7,6 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY agent/ ./agent/
 COPY app/ ./app/
+COPY docs/fixtures/ ./docs/fixtures/
 
 ENV PYTHONPATH=/app
 EXPOSE 8501
