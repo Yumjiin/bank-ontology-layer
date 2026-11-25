@@ -27,13 +27,13 @@ eng = query.make_engine()  # DATABASE_URL 환경변수, 없으면 localhost:5433
 F = lambda p, op, v: Filter(property=p, op=op, value=v)
 
 def metric(name, s, e, *fs):
-    return query.get_metric(eng, onto, name, MetricRequest(period=Period(start=s, end=e), filters=list(fs)))["value"]
+    return query.get_metric(eng, onto, name, MetricRequest(period=Period(start=s, end=e), filters=list(fs)), role="teller")["value"]
 def total(obj, *fs):
-    return query.search_objects(eng, onto, SearchRequest(object_type=obj, filters=list(fs), limit=1))["total"]
+    return query.search_objects(eng, onto, SearchRequest(object_type=obj, filters=list(fs), limit=1), role="teller")["total"]
 def first(obj, prop, *fs):
-    return query.search_objects(eng, onto, SearchRequest(object_type=obj, filters=list(fs), properties=[prop], limit=1))["items"][0][prop]
+    return query.search_objects(eng, onto, SearchRequest(object_type=obj, filters=list(fs), properties=[prop], limit=1), role="teller")["items"][0][prop]
 def link(obj, oid, ln, *fs, prop=None):
-    r = query.get_linked_objects(eng, onto, obj, oid, ln, LinkRequest(filters=list(fs), limit=20))
+    r = query.get_linked_objects(eng, onto, obj, oid, ln, LinkRequest(filters=list(fs), limit=20), role="teller")
     return r["items"][0][prop] if prop else r["total"]
 
 CALLS = {

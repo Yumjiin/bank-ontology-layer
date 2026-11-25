@@ -3,7 +3,7 @@
 compiler가 만든 SELECT를 DB에서 실행하고, 결과를 사람이 쓰는 값으로 바꿔
 API 응답 형식(docs/fixtures/objects_search.json)으로 돌려줌.
 
-역할별 마스킹(policy)은 이슈 #5에서 이 결과에 적용함. 지금은 policy 필드에 빈 값만 채움.
+역할별 마스킹·차단(policy.py)은 모든 조회 결과에 적용하고, 필터도 역할 기준으로 검사함.
 실행 기록 저장(agent_trace)은 이슈 #17에서 연결함. 지금은 trace_id만 발급함.
 """
 
@@ -28,8 +28,10 @@ from compiler import (
     get_link,
     get_object_type,
     primary_key_property,
+    resolve_property,
 )
 from metadata import Ontology
+import policy
 from schemas import Filter, LinkRequest, MetricRequest, SearchRequest
 
 DEFAULT_DATABASE_URL = "postgresql://bank:bank@localhost:5433/bank"
@@ -73,21 +75,18 @@ def render_sql(stmt: Select, engine: Engine) -> str:
     return str(stmt.compile(dialect=engine.dialect, compile_kwargs={"literal_binds": True}))
 
 
-def empty_policy() -> dict[str, list[str]]:
-    return {"masked": [], "blocked": []}  # TODO(#5): 역할별 마스킹 결과로 채움
-
-
 # ---------------------------------------------------------------
 # 객체 검색
 # ---------------------------------------------------------------
 
-def search_objects(engine: Engine, ontology: Ontology, req: SearchRequest) -> dict[str, Any]:
+def search_objects(engine: Engine, ontology: Ontology, req: SearchRequest, *, role: str) -> dict[str, Any]:
     """POST /objects/search 처리.
 
     total: limit과 관계없이 조건에 맞는 전체 개수. "몇 명/몇 건" 질문은 이 값으로 답함
     has_more: total이 반환한 개수보다 많으면 true (결과가 잘렸다는 뜻)
     """
     obj = get_object_type(ontology, req.object_type)
+    policy.check_filters(ontology, role, [(req.object_type, f.property) for f in req.filters])
     stmt = compile_search(ontology, req.object_type, req.filters, req.properties, limit=req.limit)
     count_stmt = compile_search_count(ontology, req.object_type, req.filters)
 
@@ -95,20 +94,20 @@ def search_objects(engine: Engine, ontology: Ontology, req: SearchRequest) -> di
         rows = [dict(r) for r in conn.execute(stmt).mappings()]
         total = conn.execute(count_stmt).scalar_one()
 
-    items = [decode_row(obj, row) for row in rows]
+    items, applied = policy.apply_to_items(ontology, req.object_type, role, [decode_row(obj, row) for row in rows])
     return {
         "object_type": req.object_type,
         "count": len(items),
         "total": total,
         "has_more": total > len(items),
         "items": items,
-        "policy": empty_policy(),
+        "policy": applied,
         "sql": render_sql(stmt, engine),
         "trace_id": new_trace_id(),
     }
 
 
-def get_object(engine: Engine, ontology: Ontology, object_type: str, object_id: str) -> dict[str, Any]:
+def get_object(engine: Engine, ontology: Ontology, object_type: str, object_id: str, *, role: str) -> dict[str, Any]:
     """GET /objects/{type}/{id} 처리. 기본 필터 없이 기본 키로 한 건을 조회함."""
     obj = get_object_type(ontology, object_type)
     pk = primary_key_property(object_type, obj)
@@ -126,10 +125,11 @@ def get_object(engine: Engine, ontology: Ontology, object_type: str, object_id: 
     if row is None:
         raise NotFoundError(f"{object_type} '{object_id}'를 찾을 수 없음")
 
+    items, applied = policy.apply_to_items(ontology, object_type, role, [decode_row(obj, dict(row))])
     return {
         "object_type": object_type,
-        "item": decode_row(obj, dict(row)),
-        "policy": empty_policy(),
+        "item": items[0],
+        "policy": applied,
         "sql": render_sql(stmt, engine),
         "trace_id": new_trace_id(),
     }
@@ -140,11 +140,19 @@ def get_object(engine: Engine, ontology: Ontology, object_type: str, object_id: 
 # ---------------------------------------------------------------
 
 def get_linked_objects(
-    engine: Engine, ontology: Ontology, object_type: str, object_id: str, link_name: str, req: LinkRequest
+    engine: Engine,
+    ontology: Ontology,
+    object_type: str,
+    object_id: str,
+    link_name: str,
+    req: LinkRequest,
+    *,
+    role: str,
 ) -> dict[str, Any]:
     """POST /objects/{type}/{id}/links/{link} 처리. 기준 객체가 없으면 404."""
     link = get_link(ontology, link_name, from_obj=object_type)
-    get_object(engine, ontology, object_type, object_id)  # 기준 객체 존재 확인 (없으면 NotFoundError)
+    policy.check_filters(ontology, role, [(link.to, f.property) for f in req.filters])
+    get_object(engine, ontology, object_type, object_id, role=role)  # 기준 객체 존재 확인 (없으면 NotFoundError)
 
     stmt = compile_link(ontology, object_type, object_id, link_name, req.filters, req.properties, req.limit)
     count_stmt = compile_link_count(ontology, object_type, object_id, link_name, req.filters)
@@ -153,7 +161,7 @@ def get_linked_objects(
         total = conn.execute(count_stmt).scalar_one()
 
     dst = ontology.object_types[link.to]
-    items = [decode_row(dst, row) for row in rows]
+    items, applied = policy.apply_to_items(ontology, link.to, role, [decode_row(dst, row) for row in rows])
     return {
         "from": {"object_type": object_type, "id": object_id},
         "link": link_name,
@@ -162,7 +170,7 @@ def get_linked_objects(
         "total": total,
         "has_more": total > len(items),
         "items": items,
-        "policy": empty_policy(),
+        "policy": applied,
         "sql": render_sql(stmt, engine),
         "trace_id": new_trace_id(),
     }
@@ -179,8 +187,14 @@ def _to_number(value: Any) -> Any:
     return value
 
 
-def get_metric(engine: Engine, ontology: Ontology, name: str, req: MetricRequest) -> dict[str, Any]:
-    """POST /metrics/{name} 처리. 계산 규칙은 ontology.yaml의 metrics 정의를 따름."""
+def get_metric(engine: Engine, ontology: Ontology, name: str, req: MetricRequest, *, role: str) -> dict[str, Any]:
+    """POST /metrics/{name} 처리. 계산 규칙은 ontology.yaml의 metrics 정의를 따름.
+
+    집계값은 개인을 식별하지 않아 마스킹하지 않지만, 필터 제한은 검색과 똑같이 적용함.
+    """
+    if name in ontology.metrics:
+        objects = ontology.path_objects(ontology.metrics[name])
+        policy.check_filters(ontology, role, [resolve_property(ontology, objects, f.property) for f in req.filters])
     stmt = compile_metric(ontology, name, req.period.start, req.period.end, req.filters)
     with engine.connect() as conn:
         value = conn.execute(stmt).scalar_one()
@@ -193,6 +207,7 @@ def get_metric(engine: Engine, ontology: Ontology, name: str, req: MetricRequest
         "filters": [f.model_dump() for f in req.filters],
         "value": _to_number(value),
         "unit": metric.unit,
+        "policy": policy.empty_policy(),
         "sql": render_sql(stmt, engine),
         "trace_id": new_trace_id(),
     }

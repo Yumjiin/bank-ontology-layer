@@ -17,6 +17,7 @@ from sqlalchemy.exc import OperationalError
 
 import query
 from compiler import CompileError, check_default_filters
+from policy import PolicyError
 from metadata import OntologyError, load_ontology
 from schemas import ActionRequest, LinkRequest, MetricRequest, SearchRequest
 
@@ -49,6 +50,14 @@ app = FastAPI(title="Bank Ontology Service", version="0.1.0", lifespan=lifespan)
 @app.exception_handler(CompileError)
 async def handle_compile_error(request: Request, exc: CompileError):
     return JSONResponse(status_code=400, content={"detail": {"code": "INVALID_REQUEST", "message": str(exc)}})
+
+
+@app.exception_handler(PolicyError)
+async def handle_policy_error(request: Request, exc: PolicyError):
+    return JSONResponse(
+        status_code=403,
+        content={"detail": {"code": "FORBIDDEN_ROLE", "message": str(exc), "role": exc.role}},
+    )
 
 
 @app.exception_handler(query.NotFoundError)
@@ -85,8 +94,8 @@ def search_objects(
     x_role: RoleHeader = Header(...),
     x_session_id: str = Header(...),
 ):
-    # x_role은 #5 policy에서, x_session_id는 #17 실행 기록에서 사용함
-    return query.search_objects(request.app.state.engine, request.app.state.ontology, body)
+    # x_session_id는 #17 실행 기록에서 사용함
+    return query.search_objects(request.app.state.engine, request.app.state.ontology, body, role=x_role)
 
 
 @app.get("/objects/{object_type}/{object_id}")
@@ -97,7 +106,7 @@ def get_object(
     x_role: RoleHeader = Header(...),
     x_session_id: str = Header(...),
 ):
-    return query.get_object(request.app.state.engine, request.app.state.ontology, object_type, object_id)
+    return query.get_object(request.app.state.engine, request.app.state.ontology, object_type, object_id, role=x_role)
 
 
 @app.post("/objects/{object_type}/{object_id}/links/{link}")
@@ -111,7 +120,7 @@ def get_linked_objects(
     x_session_id: str = Header(...),
 ):
     return query.get_linked_objects(
-        request.app.state.engine, request.app.state.ontology, object_type, object_id, link, body
+        request.app.state.engine, request.app.state.ontology, object_type, object_id, link, body, role=x_role
     )
 
 
@@ -123,7 +132,7 @@ def get_metric(
     x_role: RoleHeader = Header(...),
     x_session_id: str = Header(...),
 ):
-    return query.get_metric(request.app.state.engine, request.app.state.ontology, name, body)
+    return query.get_metric(request.app.state.engine, request.app.state.ontology, name, body, role=x_role)
 
 
 @app.post("/actions/{action_type}")
