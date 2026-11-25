@@ -1,12 +1,24 @@
 {
-  "object_type": "Customer",
-  "count": 2,
-  "has_more": true,
-  "items": [
-    { "cust_no": "C00009", "name": "서예준", "grade": "VIP" },
-    { "cust_no": "C00013", "name": "윤건우", "grade": "VIP" }
-  ],
-  "policy": { "masked": [], "blocked": [] },
-  "sql": "SELECT cust.cust_no, cust.cust_nm, cust.cust_grd_cd \nFROM cust \nWHERE cust.cust_grd_cd = '01' ORDER BY cust.cust_no \n LIMIT 2",
-  "trace_id": "t-c31d27156b0b"
+    "object_type": "Customer",
+    "count": 2,
+    "total": 65,
+    "has_more": true,
+    "items": [
+        {
+            "cust_no": "C00009",
+            "name": "서예준",
+            "grade": "VIP"
+        },
+        {
+            "cust_no": "C00013",
+            "name": "윤건우",
+            "grade": "VIP"
+        }
+    ],
+    "policy": {
+        "masked": [],
+        "blocked": []
+    },
+    "sql": "SELECT cust.cust_no, cust.cust_nm, cust.cust_grd_cd \nFROM cust \nWHERE cust.cust_grd_cd = '01' ORDER BY cust.cust_no \n LIMIT 2",
+    "trace_id": "t-16fd6a9a8b3f"
 }

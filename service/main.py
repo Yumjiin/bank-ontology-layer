@@ -1,6 +1,6 @@
 """Ontology Service (FastAPI).
 
-현재 상태: /health, /ontology, /objects/search, /objects/{type}/{id} 동작.
+현재 상태: /health, /ontology, /objects/search, /objects/{type}/{id}, 링크 조회, 지표 계산 동작.
 나머지 엔드포인트는 계약(요청 형식)만 정의하고 501을 반환함.
 응답 형식은 docs/fixtures/의 예시 JSON을 따름.
 """
@@ -106,20 +106,24 @@ def get_linked_objects(
     object_id: str,
     link: str,
     body: LinkRequest,
+    request: Request,
     x_role: RoleHeader = Header(...),
     x_session_id: str = Header(...),
 ):
-    not_implemented("get_linked_objects")
+    return query.get_linked_objects(
+        request.app.state.engine, request.app.state.ontology, object_type, object_id, link, body
+    )
 
 
 @app.post("/metrics/{name}")
 def get_metric(
     name: str,
     body: MetricRequest,
+    request: Request,
     x_role: RoleHeader = Header(...),
     x_session_id: str = Header(...),
 ):
-    not_implemented("get_metric")
+    return query.get_metric(request.app.state.engine, request.app.state.ontology, name, body)
 
 
 @app.post("/actions/{action_type}")

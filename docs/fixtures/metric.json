@@ -1,9 +1,13 @@
 {
-  "metric": "active_customers",
-  "description": "기간 내 명의인 계좌에서 입금 또는 출금 거래가 1건 이상 발생한 고객 수",
-  "period": { "start": "2026-07-01", "end": "2026-09-30" },
-  "value": 165,
-  "unit": "명",
-  "sql": "SELECT COUNT(DISTINCT c.cust_no) FROM cust c JOIN acct_rel r ON ... WHERE r.rel_cd = '01' AND t.txn_dt BETWEEN '20260701' AND '20260930' AND t.txn_cd IN ('IN','OUT') AND t.cncl_yn = 'N'",
-  "trace_id": "t-0003"
+    "metric": "active_customers",
+    "description": "기간 내 명의인 계좌에서 입금 또는 출금 거래가 1건 이상 발생한 고객 수",
+    "period": {
+        "start": "2026-07-01",
+        "end": "2026-09-30"
+    },
+    "filters": [],
+    "value": 165,
+    "unit": "명",
+    "sql": "SELECT count(DISTINCT cust.cust_no) AS value \nFROM cust JOIN acct_rel ON acct_rel.cust_no = cust.cust_no AND acct_rel.rel_cd = '01' JOIN acct ON acct.acct_no = acct_rel.acct_no JOIN txn ON txn.acct_no = acct.acct_no \nWHERE txn.txn_cd IN ('IN', 'OUT') AND txn.txn_dt BETWEEN '20260701' AND '20260930' AND txn.cncl_yn = 'N'",
+    "trace_id": "t-e90e63cd8710"
 }

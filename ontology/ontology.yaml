@@ -9,7 +9,13 @@
 #     properties   속성 ↔ 컬럼. values는 원천 코드 → 사람이 쓰는 값, sensitivity: PII는 마스킹 대상
 #     default_filters  조회 시 항상 적용되는 조건 (예: 취소 거래 제외)
 #   link_types     객체 간 관계. via(관계 테이블 경유) 또는 join(직접 조인) 중 하나
-#   metrics        비즈니스 지표. path는 link 이름 순서, filters/aggregate/expression으로 계산 규칙 정의
+#                  via.condition은 "컬럼 = '값'" 형식만 허용 (관계 테이블 컬럼 기준)
+#   metrics        비즈니스 지표
+#     path         object에서 출발해 따라갈 link 이름 순서
+#     period       기간 파라미터를 적용할 날짜 속성 ("객체.속성")
+#     filters      지표 정의에 고정된 조건. 값은 사람이 쓰는 값 (요청 필터로 덮어쓸 수 없음)
+#     measure      집계 방식. agg: count / count_distinct / sum, sign.negative 값이면 부호를 뒤집어 합산
+#     경로상 객체의 default_filters도 자동 적용됨 (예: Transaction의 취소 거래 제외)
 #   action_types   데이터를 바꾸는 행동. allowed_roles만 요청 가능, requires_approval이면 승인 후 실행
 #   roles          역할별 정책. mask/block에는 sensitivity 값을 넣음
 
@@ -116,16 +122,24 @@ metrics:
   active_customers:
     description: 기간 내 명의인 계좌에서 입금 또는 출금 거래가 1건 이상 발생한 고객 수
     object: Customer
-    path: [owns, has_transaction]
-    filters: ["Transaction.type in [IN, OUT]"]             # 정의 문서(semantic_definitions.yaml) 기준과 일치 확인함
-    aggregate: count_distinct(Customer.cust_no)
-    params: [period]
+    path: [owns, has_transaction]                          # Customer → Account(명의인) → Transaction
+    period: Transaction.date
+    filters:
+      - { property: Transaction.type, op: in, value: [입금, 출금] }   # 이자·수수료(시스템 거래) 제외
+    measure: { agg: count_distinct, property: Customer.cust_no }
+    unit: 명
 
   net_deposit:
     description: 기간 내 입금액 합계에서 출금액 합계를 뺀 값 (이자·수수료 제외)
     object: Transaction
-    expression: "sum(case type=IN then amount when type=OUT then -amount)"
-    params: [period]
+    period: Transaction.date
+    filters:
+      - { property: Transaction.type, op: in, value: [입금, 출금] }
+    measure:
+      agg: sum
+      property: Transaction.amount
+      sign: { property: Transaction.type, negative: [출금] }       # 출금은 빼고 입금은 더함
+    unit: 원
 
 action_types:
   freeze_account:

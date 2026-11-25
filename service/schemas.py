@@ -27,7 +27,8 @@ class SearchRequest(BaseModel):
 
 
 class LinkRequest(BaseModel):
-    filters: list[Filter] = Field(default_factory=list)
+    filters: list[Filter] = Field(default_factory=list)  # 도착 객체 기준
+    properties: list[str] | None = None
     limit: int = Field(default=20, ge=1, le=200)
 
 

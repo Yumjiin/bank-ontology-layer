@@ -44,17 +44,42 @@
 | describe_ontology | GET `/ontology` | 실제 동작함 (fixture 불필요) |
 | search_objects | POST `/objects/search` | `fixtures/objects_search.json` (**동작함**) |
 | — | GET `/objects/{type}/{id}` | `fixtures/object.json` (**동작함**) |
-| get_linked_objects | POST `/objects/{type}/{id}/links/{link}` | `fixtures/linked_objects.json` |
-| get_metric | POST `/metrics/{name}` | `fixtures/metric.json` |
+| get_linked_objects | POST `/objects/{type}/{id}/links/{link}` | `fixtures/linked_objects.json` (**동작함**) |
+| get_metric | POST `/metrics/{name}` | `fixtures/metric.json` (**동작함**) |
 | request_action (허용) | POST `/actions/{action_type}` | `fixtures/action_pending.json` |
 | request_action (거부) | POST `/actions/{action_type}` | `fixtures/action_forbidden.json` (HTTP 403) |
 | — | GET `/approvals?status=PENDING` | `fixtures/approvals.json` |
 | — | POST `/approvals/{id}/approve` | `fixtures/approve.json` |
 | — | GET `/traces?session_id=` | `fixtures/traces.json` |
 
-### 검색 응답의 `has_more`
+### 개수 질문: `total` 사용
 
-`search_objects`는 `limit`보다 결과가 많으면 `has_more: true`를 돌려줌. 에이전트는 이때 결과를 전체로 간주하지 말고, 필터를 좁히거나 개수·합계 질문이면 `get_metric`을 사용해야 함.
+`search_objects`와 `get_linked_objects` 응답에는 `limit`과 관계없이 조건에 맞는 전체 개수 `total`이 들어 있음.
+
+| 필드 | 의미 |
+| --- | --- |
+| `count` | 이번 응답에 담긴 항목 수 (최대 `limit`) |
+| `total` | 조건에 맞는 전체 개수 |
+| `has_more` | `total > count`이면 true (항목 목록이 잘렸다는 뜻) |
+
+에이전트 규칙
+- "몇 명/몇 건" 질문은 `total`로 답함. 결과를 전부 받아서 셀 필요 없으므로 `limit`은 작게 둬도 됨 (예: 여성 고객 수 → `total: 173`)
+- `has_more`가 true면 `items`를 전체 결과로 간주하지 않음
+- `get_metric`은 활성 고객·순입금액처럼 **회사 정의가 필요한 지표**에만 사용함
+
+### 링크 조회
+
+- `object_type`, `object_id`는 출발 객체, `filters`·`properties`는 도착 객체 기준
+- 링크는 정의된 방향으로만 따라감 (예: `owns`는 Customer → Account). 반대 방향 요청은 400과 함께 출발 객체에서 쓸 수 있는 링크 목록을 돌려줌
+- 도착 객체의 기본 필터가 적용됨 (예: `has_transaction`은 취소 거래 제외)
+- 출발 객체가 없으면 404
+
+### 지표 계산
+
+- 계산 규칙은 `ontology.yaml`의 `metrics` 정의를 따름 (명의인만, 이자·수수료 제외, 취소 거래 제외 등)
+- `filters`에는 `/ontology` 응답의 `filterable_objects`에 있는 객체의 속성만 쓸 수 있음 (예: `net_deposit`에 `{"property": "channel", "op": "eq", "value": "모바일뱅킹"}`)
+- 같은 이름의 속성이 경로상 여러 객체에 있으면 `"Account.acct_no"`처럼 객체를 붙여야 함
+- 지표 정의에 고정된 조건(예: 거래 유형 입금·출금)은 요청 필터로 바꿀 수 없음 (400)
 
 ### 오류 응답
 
