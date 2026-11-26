@@ -1,10 +1,12 @@
 {
-  "request_id": 7,
-  "action_type": "freeze_account",
-  "target_type": "Account",
-  "target_id": "1002-001-000123",
-  "params": { "reason": "보이스피싱 의심" },
-  "status": "PENDING",
-  "message": "승인 요청이 생성되었습니다. 관리자 승인 후 실행됩니다.",
-  "trace_id": "t-0004"
+    "request_id": 1,
+    "action_type": "freeze_account",
+    "target_type": "Account",
+    "target_id": "110-000001",
+    "params": {
+        "reason": "보이스피싱 의심 신고 접수"
+    },
+    "status": "PENDING",
+    "message": "승인 요청이 생성되었습니다. 관리자 승인 후 실행됩니다.",
+    "trace_id": "t-61ced4241dd3"
 }

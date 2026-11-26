@@ -1,7 +1,6 @@
 """Ontology Service (FastAPI).
 
-현재 상태: /health, /ontology, /objects/search, /objects/{type}/{id}, 링크 조회, 지표 계산 동작.
-나머지 엔드포인트는 계약(요청 형식)만 정의하고 501을 반환함.
+온톨로지, 객체·링크 조회, 지표 계산, 역할별 정책, 액션·승인, 에이전트 실행 기록 API를 제공함.
 응답 형식은 docs/fixtures/의 예시 JSON을 따름.
 """
 
@@ -13,12 +12,15 @@ from typing import Literal
 
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
+from sqlalchemy import JSON, bindparam, text
 from sqlalchemy.exc import OperationalError
 
+import actions
 import query
 from compiler import CompileError, check_default_filters
+from policy import PolicyError
 from metadata import OntologyError, load_ontology
-from schemas import ActionRequest, LinkRequest, MetricRequest, SearchRequest
+from schemas import ActionRequest, LinkRequest, MetricRequest, SearchRequest, TraceStep
 
 ONTOLOGY_PATH = os.environ.get("ONTOLOGY_PATH", "/app/ontology/ontology.yaml")
 RoleHeader = Literal["teller", "marketer", "manager"]
@@ -51,9 +53,22 @@ async def handle_compile_error(request: Request, exc: CompileError):
     return JSONResponse(status_code=400, content={"detail": {"code": "INVALID_REQUEST", "message": str(exc)}})
 
 
+@app.exception_handler(PolicyError)
+async def handle_policy_error(request: Request, exc: PolicyError):
+    return JSONResponse(
+        status_code=403,
+        content={"detail": {"code": "FORBIDDEN_ROLE", "message": str(exc), "role": exc.role}},
+    )
+
+
 @app.exception_handler(query.NotFoundError)
 async def handle_not_found(request: Request, exc: query.NotFoundError):
     return JSONResponse(status_code=404, content={"detail": {"code": "NOT_FOUND", "message": str(exc)}})
+
+
+@app.exception_handler(actions.ConflictError)
+async def handle_conflict(request: Request, exc: actions.ConflictError):
+    return JSONResponse(status_code=409, content={"detail": {"code": "CONFLICT", "message": str(exc)}})
 
 
 @app.exception_handler(OperationalError)
@@ -63,9 +78,6 @@ async def handle_db_unavailable(request: Request, exc: OperationalError):
         content={"detail": {"code": "DB_UNAVAILABLE", "message": "DB에 연결할 수 없음. db 컨테이너와 DATABASE_URL을 확인"}},
     )
 
-
-def not_implemented(name: str):
-    raise HTTPException(status_code=501, detail=f"{name}: 아직 구현되지 않음. 응답 형식은 docs/fixtures 참고")
 
 
 @app.get("/health")
@@ -85,8 +97,7 @@ def search_objects(
     x_role: RoleHeader = Header(...),
     x_session_id: str = Header(...),
 ):
-    # x_role은 #5 policy에서, x_session_id는 #17 실행 기록에서 사용함
-    return query.search_objects(request.app.state.engine, request.app.state.ontology, body)
+    return query.search_objects(request.app.state.engine, request.app.state.ontology, body, role=x_role)
 
 
 @app.get("/objects/{object_type}/{object_id}")
@@ -97,7 +108,7 @@ def get_object(
     x_role: RoleHeader = Header(...),
     x_session_id: str = Header(...),
 ):
-    return query.get_object(request.app.state.engine, request.app.state.ontology, object_type, object_id)
+    return query.get_object(request.app.state.engine, request.app.state.ontology, object_type, object_id, role=x_role)
 
 
 @app.post("/objects/{object_type}/{object_id}/links/{link}")
@@ -111,7 +122,7 @@ def get_linked_objects(
     x_session_id: str = Header(...),
 ):
     return query.get_linked_objects(
-        request.app.state.engine, request.app.state.ontology, object_type, object_id, link, body
+        request.app.state.engine, request.app.state.ontology, object_type, object_id, link, body, role=x_role
     )
 
 
@@ -123,34 +134,77 @@ def get_metric(
     x_role: RoleHeader = Header(...),
     x_session_id: str = Header(...),
 ):
-    return query.get_metric(request.app.state.engine, request.app.state.ontology, name, body)
+    return query.get_metric(request.app.state.engine, request.app.state.ontology, name, body, role=x_role)
 
 
 @app.post("/actions/{action_type}")
 def request_action(
     action_type: str,
     body: ActionRequest,
+    request: Request,
     x_role: RoleHeader = Header(...),
     x_session_id: str = Header(...),
 ):
-    not_implemented("request_action")
+    return actions.request_action(
+        request.app.state.engine, request.app.state.ontology, action_type, body, role=x_role, session_id=x_session_id
+    )
 
 
 @app.get("/approvals")
-def list_approvals(status: str = "PENDING", x_role: RoleHeader = Header(...)):
-    not_implemented("list_approvals")
+def list_approvals(request: Request, status: str = "PENDING", x_role: RoleHeader = Header(...)):
+    return actions.list_approvals(request.app.state.engine, request.app.state.ontology, status, role=x_role)
 
 
 @app.post("/approvals/{request_id}/approve")
-def approve(request_id: int, x_role: RoleHeader = Header(...)):
-    not_implemented("approve")
+def approve(request_id: int, request: Request, x_role: RoleHeader = Header(...)):
+    return actions.approve(request.app.state.engine, request.app.state.ontology, request_id, role=x_role)
 
 
 @app.post("/approvals/{request_id}/reject")
-def reject(request_id: int, x_role: RoleHeader = Header(...)):
-    not_implemented("reject")
+def reject(request_id: int, request: Request, x_role: RoleHeader = Header(...)):
+    return actions.reject(request.app.state.engine, request.app.state.ontology, request_id, role=x_role)
+
+
+@app.post("/traces", status_code=201)
+def save_trace_step(
+    body: TraceStep,
+    request: Request,
+    x_role: RoleHeader = Header(...),
+    x_session_id: str = Header(...),
+):
+    stmt = text("""
+        INSERT INTO agent_trace (
+            trace_id, session_id, step, span_type, tool_name, input,
+            output_summary, sql_text, policy_decision, latency_ms
+        ) VALUES (
+            :trace_id, :session_id, :step, :span_type, :tool_name, :input,
+            :output_summary, :sql_text, :policy_decision, :latency_ms
+        )
+    """).bindparams(bindparam("input", type_=JSON(none_as_null=True)))
+    with request.app.state.engine.begin() as conn:
+        conn.execute(stmt, {**body.model_dump(), "session_id": x_session_id})
+    return {"trace_id": body.trace_id, "step": body.step}
 
 
 @app.get("/traces")
-def list_traces(session_id: str):
-    not_implemented("list_traces")
+def list_traces(
+    session_id: str,
+    request: Request,
+    x_role: RoleHeader = Header(...),
+    x_session_id: str = Header(...),
+):
+    if session_id != x_session_id:
+        raise HTTPException(status_code=403, detail={
+            "code": "FORBIDDEN_SESSION",
+            "message": "현재 세션의 실행 기록만 조회할 수 있습니다.",
+        })
+    stmt = text("""
+        SELECT trace_id, step, span_type, tool_name, input,
+               output_summary, sql_text, policy_decision, latency_ms
+        FROM agent_trace
+        WHERE session_id = :session_id
+        ORDER BY id
+    """).columns(input=JSON)
+    with request.app.state.engine.connect() as conn:
+        items = [dict(row) for row in conn.execute(stmt, {"session_id": session_id}).mappings()]
+    return {"session_id": session_id, "items": items}

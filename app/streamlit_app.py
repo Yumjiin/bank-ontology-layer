@@ -37,7 +37,6 @@ with st.sidebar:
     except requests.RequestException:
         ok = False
     st.caption(f"Ontology Service: {'연결됨' if ok else '연결 안 됨'}")
-    st.caption("개발 모드 · 조회와 승인 요청은 예시 응답을 사용합니다.")
 
 st.title("Bank Ontology Layer")
 
@@ -59,6 +58,8 @@ if question := st.chat_input("은행 데이터에 대해 질문하세요"):
             result = run_agent(question, role, st.session_state.session_id)
             answer = result["answer"]
             reply["tools"] = [step["tool"] for step in result["steps"]]
+            if not result["trace_saved"]:
+                answer += "\n\n일부 실행 기록을 저장하지 못했습니다."
         except requests.RequestException:
             answer = "모델 호출에 실패했습니다. 잠시 후 다시 시도해 주세요."
         except ValueError:

@@ -60,7 +60,7 @@ def engine():
 
 def test_search_decodes_values(engine, onto):
     req = SearchRequest(object_type="Customer", filters=[Filter(property="grade", op="eq", value="VIP")])
-    res = query.search_objects(engine, onto, req)
+    res = query.search_objects(engine, onto, req, role="teller")
     assert res["count"] == 2
     assert res["items"][0] == {"cust_no": "C01", "name": "김하나", "grade": "VIP"}
     assert res["has_more"] is False
@@ -74,34 +74,34 @@ def test_search_applies_default_filter(engine, onto):
         object_type="Transaction",
         filters=[Filter(property="date", op="between", value=["2026-09-01", "2026-09-30"])],
     )
-    res = query.search_objects(engine, onto, req)
+    res = query.search_objects(engine, onto, req, role="teller")
     assert [i["txn_no"] for i in res["items"]] == [1, 3, 5]
     assert res["items"][0]["date"] == "2026-09-01"
     assert res["items"][0]["type"] == "입금"
 
 
 def test_search_has_more_when_truncated(engine, onto):
-    res = query.search_objects(engine, onto, SearchRequest(object_type="Customer", limit=2))
+    res = query.search_objects(engine, onto, SearchRequest(object_type="Customer", limit=2), role="teller")
     assert res["count"] == 2 and res["has_more"] is True
 
 
 def test_search_total_ignores_limit(engine, onto):
     # "VIP 고객 수는?" 같은 질문은 결과를 다 받지 않고 total로 답함
     req = SearchRequest(object_type="Customer", filters=[Filter(property="grade", op="eq", value="VIP")], limit=1)
-    res = query.search_objects(engine, onto, req)
+    res = query.search_objects(engine, onto, req, role="teller")
     assert res["count"] == 1 and res["total"] == 2 and res["has_more"] is True
 
 
 def test_search_returns_readable_sql(engine, onto):
     req = SearchRequest(object_type="Customer", filters=[Filter(property="grade", op="eq", value="VIP")], limit=5)
-    sql = query.search_objects(engine, onto, req)["sql"]
+    sql = query.search_objects(engine, onto, req, role="teller")["sql"]
     assert "cust_grd_cd = '01'" in sql and "LIMIT 5" in sql  # 응답에는 요청한 limit 그대로 보여줌 (+1 아님)
 
 
 def test_search_invalid_value_raises(engine, onto):
     req = SearchRequest(object_type="Customer", filters=[Filter(property="grade", op="eq", value="GOLD")])
     with pytest.raises(CompileError):
-        query.search_objects(engine, onto, req)
+        query.search_objects(engine, onto, req, role="teller")
 
 
 # ---------------------------------------------------------------
@@ -109,19 +109,19 @@ def test_search_invalid_value_raises(engine, onto):
 # ---------------------------------------------------------------
 
 def test_get_object(engine, onto):
-    res = query.get_object(engine, onto, "Account", "A02")
+    res = query.get_object(engine, onto, "Account", "A02", role="teller")
     assert res["item"] == {"acct_no": "A02", "status": "휴면"}
 
 
 def test_get_object_ignores_default_filter(engine, onto):
     # 취소된 거래도 ID로 직접 조회하면 보여야 함
-    res = query.get_object(engine, onto, "Transaction", "2")
+    res = query.get_object(engine, onto, "Transaction", "2", role="teller")
     assert res["item"]["cancelled"] == "true"
 
 
 def test_get_object_not_found(engine, onto):
     with pytest.raises(query.NotFoundError):
-        query.get_object(engine, onto, "Customer", "C99")
+        query.get_object(engine, onto, "Customer", "C99", role="teller")
 
 
 # ---------------------------------------------------------------
@@ -174,7 +174,7 @@ def test_api_get_object_and_404(client):
 # ---------------------------------------------------------------
 
 def link(engine, onto, obj, oid, name, *filters):
-    return query.get_linked_objects(engine, onto, obj, oid, name, LinkRequest(filters=list(filters)))
+    return query.get_linked_objects(engine, onto, obj, oid, name, LinkRequest(filters=list(filters)), role="teller")
 
 
 def test_link_owns_uses_via_condition(engine, onto):
@@ -211,7 +211,7 @@ def test_link_must_start_from_object_type(engine, onto):
 
 def metric(engine, onto, name, start, end, *filters):
     req = MetricRequest(period=Period(start=start, end=end), filters=list(filters))
-    return query.get_metric(engine, onto, name, req)
+    return query.get_metric(engine, onto, name, req, role="teller")
 
 
 def test_active_customers_counts_only_owners(engine, onto):

@@ -1,0 +1,13 @@
+{
+  "object_type": "Customer",
+  "count": 2,
+  "total": 65,
+  "has_more": true,
+  "items": [
+    { "cust_no": "C00009", "name": "***", "grade": "VIP" },
+    { "cust_no": "C00013", "name": "***", "grade": "VIP" }
+  ],
+  "policy": { "masked": ["name"], "blocked": [] },
+  "sql": "SELECT cust.cust_no, cust.cust_nm, cust.cust_grd_cd \nFROM cust \nWHERE cust.cust_grd_cd = '01' ORDER BY cust.cust_no \n LIMIT 2",
+  "trace_id": "t-5b0c1e2a9f41"
+}

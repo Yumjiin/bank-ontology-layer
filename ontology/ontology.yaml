@@ -16,7 +16,10 @@
 #     filters      지표 정의에 고정된 조건. 값은 사람이 쓰는 값 (요청 필터로 덮어쓸 수 없음)
 #     measure      집계 방식. agg: count / count_distinct / sum, sign.negative 값이면 부호를 뒤집어 합산
 #     경로상 객체의 default_filters도 자동 적용됨 (예: Transaction의 취소 거래 제외)
-#   action_types   데이터를 바꾸는 행동. allowed_roles만 요청 가능, requires_approval이면 승인 후 실행
+#   action_types   데이터를 바꾸는 행동
+#     allowed_roles     요청할 수 있는 역할 / approver_roles 승인·거절할 수 있는 역할 (생략 시 allowed_roles)
+#     requires_approval true면 승인 대기로 만들고 승인 시 실행, false면 즉시 실행
+#     effect            실행 시 대상 속성을 value로 바꿈. allowed_from에 있는 상태일 때만 실행 가능
 #   roles          역할별 정책. mask/block에는 sensitivity 값을 넣음
 
 version: "0.1"
@@ -147,7 +150,12 @@ action_types:
     target: Account
     params: { reason: string }
     allowed_roles: [manager]
+    approver_roles: [manager]
     requires_approval: true
+    effect:
+      property: status
+      value: 지급정지
+      allowed_from: [활성, 휴면]          # 해지됐거나 이미 지급정지된 계좌는 거부
 
 roles:
   teller: { description: 상담원, mask: [], block: [] }

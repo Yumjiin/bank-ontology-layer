@@ -102,12 +102,26 @@ class Metric(BaseModel):
     unit: str = ""
 
 
+class ActionEffect(BaseModel):
+    """액션이 실행될 때 대상 객체에서 바뀌는 내용. 값은 사람이 쓰는 값."""
+
+    property: str
+    value: str
+    allowed_from: list[str] = Field(default_factory=list)  # 비어 있으면 현재 값과 무관하게 실행
+
+
 class ActionType(BaseModel):
     description: str
     target: str
-    params: dict[str, str] = Field(default_factory=dict)
-    allowed_roles: list[str]
+    params: dict[str, Literal["string"]] = Field(default_factory=dict)  # 지금은 문자열 파라미터만 지원
+    allowed_roles: list[str]                                          # 요청할 수 있는 역할
+    approver_roles: list[str] = Field(default_factory=list)            # 승인·거절할 수 있는 역할 (비우면 allowed_roles)
     requires_approval: bool = True
+    effect: ActionEffect
+
+    @property
+    def approvers(self) -> list[str]:
+        return self.approver_roles or self.allowed_roles
 
 
 class Role(BaseModel):
@@ -203,9 +217,19 @@ class Ontology(BaseModel):
         for name, action in self.action_types.items():
             if action.target not in objects:
                 errors.append(f"action_types.{name}: 존재하지 않는 객체 타입 '{action.target}'")
-            for role in action.allowed_roles:
+                continue
+            for role in set(action.allowed_roles) | set(action.approver_roles):
                 if role not in self.roles:
                     errors.append(f"action_types.{name}: 존재하지 않는 역할 '{role}'")
+            prop = objects[action.target].properties.get(action.effect.property)
+            if prop is None:
+                errors.append(f"action_types.{name}.effect: {action.target}에 속성 '{action.effect.property}'이 없음")
+                continue
+            if prop.values:
+                allowed = set(prop.values.values())
+                for v in [action.effect.value, *action.effect.allowed_from]:
+                    if v not in allowed:
+                        errors.append(f"action_types.{name}.effect: '{v}'는 {action.target}.{action.effect.property}의 정의된 값이 아님")
 
         return errors
 
@@ -237,7 +261,14 @@ class Ontology(BaseModel):
                 for name, m in self.metrics.items()
             },
             "action_types": {
-                name: {"description": a.description, "target": a.target, "params": a.params}
+                name: {
+                    "description": a.description,
+                    "target": a.target,
+                    "params": a.params,
+                    "allowed_roles": a.allowed_roles,
+                    "requires_approval": a.requires_approval,
+                    "effect": f"{a.target}.{a.effect.property} → {a.effect.value}",
+                }
                 for name, a in self.action_types.items()
             },
             "roles": list(self.roles),

@@ -46,11 +46,36 @@
 | — | GET `/objects/{type}/{id}` | `fixtures/object.json` (**동작함**) |
 | get_linked_objects | POST `/objects/{type}/{id}/links/{link}` | `fixtures/linked_objects.json` (**동작함**) |
 | get_metric | POST `/metrics/{name}` | `fixtures/metric.json` (**동작함**) |
-| request_action (허용) | POST `/actions/{action_type}` | `fixtures/action_pending.json` |
-| request_action (거부) | POST `/actions/{action_type}` | `fixtures/action_forbidden.json` (HTTP 403) |
-| — | GET `/approvals?status=PENDING` | `fixtures/approvals.json` |
-| — | POST `/approvals/{id}/approve` | `fixtures/approve.json` |
-| — | GET `/traces?session_id=` | `fixtures/traces.json` |
+| request_action (허용) | POST `/actions/{action_type}` | `fixtures/action_pending.json` (**동작함**) |
+| request_action (거부) | POST `/actions/{action_type}` | `fixtures/action_forbidden.json` (HTTP 403, **동작함**) |
+| — | GET `/approvals?status=PENDING` | `fixtures/approvals.json` (**동작함**) |
+| — | POST `/approvals/{id}/approve` | `fixtures/approve.json` (**동작함**) |
+| — | POST `/approvals/{id}/reject` | `{"request_id": 1, "status": "REJECTED", ...}` (**동작함**) |
+| — | POST `/traces` | 실행 단계 저장, HTTP 201과 `trace_id`, `step` 반환 (**동작함**) |
+| — | GET `/traces?session_id=` | `fixtures/traces.json` (**동작함**) |
+
+### 역할별 정책 (`X-Role`)
+
+`ontology.yaml`의 속성 `sensitivity`(예: PII)와 `roles` 정의에 따라 모든 조회 응답에 적용됨.
+
+| 역할 | PII 속성 (고객명) |
+| --- | --- |
+| teller (상담원) | 원문 |
+| marketer (마케팅) | `***`로 마스킹 |
+| manager (관리자) | 원문 |
+
+- 응답의 `policy.masked` / `policy.blocked`에 이번 응답에서 마스킹·차단된 속성이 기록됨 (`fixtures/objects_search_marketer.json`)
+- 마스킹·차단된 속성은 **필터로도 쓸 수 없음** → 403 `FORBIDDEN_ROLE` (`fixtures/error_forbidden_filter.json`). 값을 못 보는 역할이 이름으로 검색하면 결과 유무로 정보를 알아낼 수 있기 때문
+- `total`, 지표 값은 개인을 식별하지 않으므로 역할과 무관하게 같음
+- 에이전트는 403 `message`를 그대로 사용자에게 설명함 (다른 속성으로 우회 검색하지 않음)
+
+### 에이전트 실행 기록
+
+에이전트는 질문마다 하나의 `trace_id`를 만들고, 실행 시작과 각 모델·도구 호출을 `agent_trace`에 순서대로 저장함. 첫 온톨로지 조회와 실패한 호출도 기록함.
+
+`POST /traces`는 `trace_id`, `step`(1부터 시작), `span_type`(`invoke_agent`, `chat`, `execute_tool`), `output_summary`를 받음. 단계에 따라 `tool_name`, `input`, `sql_text`, `policy_decision`, `latency_ms`를 함께 보낼 수 있음. 세션은 `X-Session-Id` 헤더로 지정함.
+
+`GET /traces`는 쿼리의 `session_id`와 `X-Session-Id`가 일치하는 세션의 기록을 저장 순서로 반환함. 각 항목의 `trace_id`로 같은 질문의 단계를 묶을 수 있음.
 
 ### 개수 질문: `total` 사용
 
@@ -81,15 +106,32 @@
 - 같은 이름의 속성이 경로상 여러 객체에 있으면 `"Account.acct_no"`처럼 객체를 붙여야 함
 - 지표 정의에 고정된 조건(예: 거래 유형 입금·출금)은 요청 필터로 바꿀 수 없음 (400)
 
+### 액션과 승인
+
+데이터를 바꾸는 행동은 바로 실행되지 않고 승인을 거침. 규칙은 `ontology.yaml`의 `action_types` 정의를 따름.
+
+| 단계 | 누가 | 결과 |
+| --- | --- | --- |
+| 요청 `POST /actions/freeze_account` | `allowed_roles` (manager) | 승인 대기(PENDING) 생성, 대상 데이터는 그대로 |
+| 승인 `POST /approvals/{id}/approve` | `approver_roles` (manager) | 실행 직전 대상 상태를 다시 확인하고 `effect` 적용 → EXECUTED |
+| 거절 `POST /approvals/{id}/reject` | `approver_roles` (manager) | REJECTED, 데이터 변화 없음 |
+| 목록 `GET /approvals?status=` | 승인 권한이 있는 역할 | `PENDING`(기본), `EXECUTED`, `REJECTED`, `ALL` |
+
+- 요청 body: `{"target_id": "110-000001", "params": {"reason": "..."}}`. `params`는 정의된 키만, 빈 값은 400
+- 409 `CONFLICT` (`fixtures/error_conflict.json`): 같은 대상에 승인 대기 요청이 이미 있음 / 대상 상태가 `effect.allowed_from`에 없음 (해지·이미 지급정지) / 이미 처리된 요청
+- 승인 응답의 `change`에 바뀐 속성과 이전·이후 값이 들어 있음
+- 에이전트는 `request_action`의 결과를 "승인 요청이 생성됨"으로 안내하고, 실행됐다고 말하지 않음
+- 사용자 인증이 없어 요청자와 승인자가 같은지는 검사하지 않음 (역할 기준으로만 통제)
+
 ### 오류 응답
 
-400·403·404·503은 모두 `{"detail": {"code": ..., "message": ...}}` 형식임 (`fixtures/error_invalid_request.json`).
+400·403·404·409·503은 모두 `{"detail": {"code": ..., "message": ...}}` 형식임 (`fixtures/error_invalid_request.json`).
 
 | 상태 코드 | code | 의미 | 에이전트 처리 |
 | --- | --- | --- | --- |
 | 400 | `INVALID_REQUEST` | 존재하지 않는 객체·속성·링크·지표, 정의에 없는 값, 잘못된 날짜 형식 | `message`(허용값 포함)를 LLM에 전달해 다시 시도 |
-| 403 | `FORBIDDEN_ROLE` | 역할 권한 없음 | `message`의 사유를 사용자에게 설명 |
-| 404 | `NOT_FOUND` | ID에 해당하는 객체 없음 | 사용자에게 없음을 알림 |
+| 403 | `FORBIDDEN_ROLE` | 역할 권한 없음 (마스킹 속성 필터, 허용되지 않은 액션) | `message`를 그대로 사용자에게 설명하고 다른 속성으로 우회 조회하지 않음 |
+| 404 | `NOT_FOUND` | ID에 해당하는 객체·승인 요청 없음 | 사용자에게 없음을 알림 |
+| 409 | `CONFLICT` | 현재 상태에서 할 수 없는 액션·승인 | `message`를 사용자에게 설명 |
 | 422 | — | 요청 형식 오류 (헤더 누락 등) | 코드 버그, 수정 필요 |
-| 501 | — | 아직 구현되지 않음 | 개발 중에만 발생 |
 | 503 | `DB_UNAVAILABLE` | DB 연결 실패 | 잠시 후 재시도 |
