@@ -14,6 +14,10 @@ from agent.loop import run_agent
 API_URL = os.environ.get("ONTOLOGY_API_URL", "http://localhost:8001")
 ROLE_LABELS = {"teller": "상담원", "marketer": "마케팅", "manager": "관리자"}
 
+def as_markdown(text: str) -> str:
+    """마스킹 값 ***이 마크다운 구분선(<hr>)으로 그려지지 않도록 이스케이프함."""
+    return text.replace("***", r"\*\*\*")
+
 st.set_page_config(page_title="Bank Ontology Layer", layout="wide")
 
 if "session_id" not in st.session_state:
@@ -42,7 +46,7 @@ st.title("Bank Ontology Layer")
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+        st.markdown(as_markdown(msg["content"]))
         if "agent_role" in msg:
             caption = f"역할: {ROLE_LABELS[msg['agent_role']]}"
             if "tools" in msg:
