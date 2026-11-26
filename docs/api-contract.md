@@ -52,6 +52,21 @@
 | — | POST `/approvals/{id}/approve` | `fixtures/approve.json` |
 | — | GET `/traces?session_id=` | `fixtures/traces.json` |
 
+### 역할별 정책 (`X-Role`)
+
+`ontology.yaml`의 속성 `sensitivity`(예: PII)와 `roles` 정의에 따라 모든 조회 응답에 적용됨.
+
+| 역할 | PII 속성 (고객명) |
+| --- | --- |
+| teller (상담원) | 원문 |
+| marketer (마케팅) | `***`로 마스킹 |
+| manager (관리자) | 원문 |
+
+- 응답의 `policy.masked` / `policy.blocked`에 이번 응답에서 마스킹·차단된 속성이 기록됨 (`fixtures/objects_search_marketer.json`)
+- 마스킹·차단된 속성은 **필터로도 쓸 수 없음** → 403 `FORBIDDEN_ROLE` (`fixtures/error_forbidden_filter.json`). 값을 못 보는 역할이 이름으로 검색하면 결과 유무로 정보를 알아낼 수 있기 때문
+- `total`, 지표 값은 개인을 식별하지 않으므로 역할과 무관하게 같음
+- 에이전트는 403 `message`를 그대로 사용자에게 설명함 (다른 속성으로 우회 검색하지 않음)
+
 ### 개수 질문: `total` 사용
 
 `search_objects`와 `get_linked_objects` 응답에는 `limit`과 관계없이 조건에 맞는 전체 개수 `total`이 들어 있음.
@@ -88,7 +103,7 @@
 | 상태 코드 | code | 의미 | 에이전트 처리 |
 | --- | --- | --- | --- |
 | 400 | `INVALID_REQUEST` | 존재하지 않는 객체·속성·링크·지표, 정의에 없는 값, 잘못된 날짜 형식 | `message`(허용값 포함)를 LLM에 전달해 다시 시도 |
-| 403 | `FORBIDDEN_ROLE` | 역할 권한 없음 | `message`의 사유를 사용자에게 설명 |
+| 403 | `FORBIDDEN_ROLE` | 역할 권한 없음 (마스킹 속성 필터, 허용되지 않은 액션) | `message`의 사유를 사용자에게 설명 |
 | 404 | `NOT_FOUND` | ID에 해당하는 객체 없음 | 사용자에게 없음을 알림 |
 | 422 | — | 요청 형식 오류 (헤더 누락 등) | 코드 버그, 수정 필요 |
 | 501 | — | 아직 구현되지 않음 | 개발 중에만 발생 |

@@ -80,3 +80,4 @@ metrics:
 roles:
   teller: { mask: [], block: [] }
   marketer: { mask: [PII], block: [] }
+  auditor: { mask: [], block: [PII] }   # 테스트 전용: 차단(block) 규칙 확인용
