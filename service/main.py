@@ -1,6 +1,6 @@
 """Ontology Service (FastAPI).
 
-현재 상태: /health, /ontology, /objects/search, /objects/{type}/{id}, 링크 조회, 지표 계산 동작.
+현재 상태: /traces를 제외한 모든 엔드포인트 동작 (실행 기록은 이슈 #17).
 나머지 엔드포인트는 계약(요청 형식)만 정의하고 501을 반환함.
 응답 형식은 docs/fixtures/의 예시 JSON을 따름.
 """
@@ -15,6 +15,7 @@ from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import OperationalError
 
+import actions
 import query
 from compiler import CompileError, check_default_filters
 from policy import PolicyError
@@ -63,6 +64,11 @@ async def handle_policy_error(request: Request, exc: PolicyError):
 @app.exception_handler(query.NotFoundError)
 async def handle_not_found(request: Request, exc: query.NotFoundError):
     return JSONResponse(status_code=404, content={"detail": {"code": "NOT_FOUND", "message": str(exc)}})
+
+
+@app.exception_handler(actions.ConflictError)
+async def handle_conflict(request: Request, exc: actions.ConflictError):
+    return JSONResponse(status_code=409, content={"detail": {"code": "CONFLICT", "message": str(exc)}})
 
 
 @app.exception_handler(OperationalError)
@@ -139,25 +145,28 @@ def get_metric(
 def request_action(
     action_type: str,
     body: ActionRequest,
+    request: Request,
     x_role: RoleHeader = Header(...),
     x_session_id: str = Header(...),
 ):
-    not_implemented("request_action")
+    return actions.request_action(
+        request.app.state.engine, request.app.state.ontology, action_type, body, role=x_role, session_id=x_session_id
+    )
 
 
 @app.get("/approvals")
-def list_approvals(status: str = "PENDING", x_role: RoleHeader = Header(...)):
-    not_implemented("list_approvals")
+def list_approvals(request: Request, status: str = "PENDING", x_role: RoleHeader = Header(...)):
+    return actions.list_approvals(request.app.state.engine, request.app.state.ontology, status, role=x_role)
 
 
 @app.post("/approvals/{request_id}/approve")
-def approve(request_id: int, x_role: RoleHeader = Header(...)):
-    not_implemented("approve")
+def approve(request_id: int, request: Request, x_role: RoleHeader = Header(...)):
+    return actions.approve(request.app.state.engine, request.app.state.ontology, request_id, role=x_role)
 
 
 @app.post("/approvals/{request_id}/reject")
-def reject(request_id: int, x_role: RoleHeader = Header(...)):
-    not_implemented("reject")
+def reject(request_id: int, request: Request, x_role: RoleHeader = Header(...)):
+    return actions.reject(request.app.state.engine, request.app.state.ontology, request_id, role=x_role)
 
 
 @app.get("/traces")
