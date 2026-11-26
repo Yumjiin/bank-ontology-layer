@@ -51,7 +51,8 @@
 | — | GET `/approvals?status=PENDING` | `fixtures/approvals.json` (**동작함**) |
 | — | POST `/approvals/{id}/approve` | `fixtures/approve.json` (**동작함**) |
 | — | POST `/approvals/{id}/reject` | `{"request_id": 1, "status": "REJECTED", ...}` (**동작함**) |
-| — | GET `/traces?session_id=` | `fixtures/traces.json` |
+| — | POST `/traces` | 실행 단계 저장, HTTP 201과 `trace_id`, `step` 반환 (**동작함**) |
+| — | GET `/traces?session_id=` | `fixtures/traces.json` (**동작함**) |
 
 ### 역할별 정책 (`X-Role`)
 
@@ -67,6 +68,14 @@
 - 마스킹·차단된 속성은 **필터로도 쓸 수 없음** → 403 `FORBIDDEN_ROLE` (`fixtures/error_forbidden_filter.json`). 값을 못 보는 역할이 이름으로 검색하면 결과 유무로 정보를 알아낼 수 있기 때문
 - `total`, 지표 값은 개인을 식별하지 않으므로 역할과 무관하게 같음
 - 에이전트는 403 `message`를 그대로 사용자에게 설명함 (다른 속성으로 우회 검색하지 않음)
+
+### 에이전트 실행 기록
+
+에이전트는 질문마다 하나의 `trace_id`를 만들고, 실행 시작과 각 모델·도구 호출을 `agent_trace`에 순서대로 저장함. 첫 온톨로지 조회와 실패한 호출도 기록함.
+
+`POST /traces`는 `trace_id`, `step`(1부터 시작), `span_type`(`invoke_agent`, `chat`, `execute_tool`), `output_summary`를 받음. 단계에 따라 `tool_name`, `input`, `sql_text`, `policy_decision`, `latency_ms`를 함께 보낼 수 있음. 세션은 `X-Session-Id` 헤더로 지정함.
+
+`GET /traces`는 쿼리의 `session_id`와 `X-Session-Id`가 일치하는 세션의 기록을 저장 순서로 반환함. 각 항목의 `trace_id`로 같은 질문의 단계를 묶을 수 있음.
 
 ### 개수 질문: `total` 사용
 
@@ -116,14 +125,13 @@
 
 ### 오류 응답
 
-400·403·404·503은 모두 `{"detail": {"code": ..., "message": ...}}` 형식임 (`fixtures/error_invalid_request.json`).
+400·403·404·409·503은 모두 `{"detail": {"code": ..., "message": ...}}` 형식임 (`fixtures/error_invalid_request.json`).
 
 | 상태 코드 | code | 의미 | 에이전트 처리 |
 | --- | --- | --- | --- |
 | 400 | `INVALID_REQUEST` | 존재하지 않는 객체·속성·링크·지표, 정의에 없는 값, 잘못된 날짜 형식 | `message`(허용값 포함)를 LLM에 전달해 다시 시도 |
-| 403 | `FORBIDDEN_ROLE` | 역할 권한 없음 (마스킹 속성 필터, 허용되지 않은 액션) | `message`의 사유를 사용자에게 설명 |
+| 403 | `FORBIDDEN_ROLE` | 역할 권한 없음 (마스킹 속성 필터, 허용되지 않은 액션) | `message`를 그대로 사용자에게 설명하고 다른 속성으로 우회 조회하지 않음 |
 | 404 | `NOT_FOUND` | ID에 해당하는 객체·승인 요청 없음 | 사용자에게 없음을 알림 |
 | 409 | `CONFLICT` | 현재 상태에서 할 수 없는 액션·승인 | `message`를 사용자에게 설명 |
 | 422 | — | 요청 형식 오류 (헤더 누락 등) | 코드 버그, 수정 필요 |
-| 501 | — | 아직 구현되지 않음 | 개발 중에만 발생 |
 | 503 | `DB_UNAVAILABLE` | DB 연결 실패 | 잠시 후 재시도 |
