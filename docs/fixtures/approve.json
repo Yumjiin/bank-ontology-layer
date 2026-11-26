@@ -1,6 +1,14 @@
 {
-  "request_id": 7,
-  "status": "EXECUTED",
-  "result": { "acct_no": "1002-001-000123", "status": "지급정지" },
-  "trace_id": "t-0006"
+    "request_id": 1,
+    "status": "EXECUTED",
+    "result": {
+        "acct_no": "110-000001",
+        "status": "지급정지"
+    },
+    "change": {
+        "property": "status",
+        "from": "활성",
+        "to": "지급정지"
+    },
+    "trace_id": "t-da16a07fa666"
 }

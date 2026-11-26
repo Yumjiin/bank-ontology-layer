@@ -113,7 +113,7 @@ def service_request(method: str, path: str, role: str, session_id: str, body=Non
         json=body,
         timeout=5,
     )
-    if response.status_code not in (400, 403, 404, 422, 501, 503):
+    if response.status_code not in (400, 403, 404, 409, 422, 501, 503):
         response.raise_for_status()
     result = response.json()
     if not isinstance(result, dict):
