@@ -1,0 +1,6 @@
+{
+  "detail": {
+    "code": "CONFLICT",
+    "message": "freeze_account: Account '110-000007'의 현재 status가 '해지'라 실행할 수 없음 (가능한 상태: 활성, 휴면)"
+  }
+}

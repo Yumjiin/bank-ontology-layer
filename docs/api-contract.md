@@ -46,10 +46,11 @@
 | — | GET `/objects/{type}/{id}` | `fixtures/object.json` (**동작함**) |
 | get_linked_objects | POST `/objects/{type}/{id}/links/{link}` | `fixtures/linked_objects.json` (**동작함**) |
 | get_metric | POST `/metrics/{name}` | `fixtures/metric.json` (**동작함**) |
-| request_action (허용) | POST `/actions/{action_type}` | `fixtures/action_pending.json` |
-| request_action (거부) | POST `/actions/{action_type}` | `fixtures/action_forbidden.json` (HTTP 403) |
-| — | GET `/approvals?status=PENDING` | `fixtures/approvals.json` |
-| — | POST `/approvals/{id}/approve` | `fixtures/approve.json` |
+| request_action (허용) | POST `/actions/{action_type}` | `fixtures/action_pending.json` (**동작함**) |
+| request_action (거부) | POST `/actions/{action_type}` | `fixtures/action_forbidden.json` (HTTP 403, **동작함**) |
+| — | GET `/approvals?status=PENDING` | `fixtures/approvals.json` (**동작함**) |
+| — | POST `/approvals/{id}/approve` | `fixtures/approve.json` (**동작함**) |
+| — | POST `/approvals/{id}/reject` | `{"request_id": 1, "status": "REJECTED", ...}` (**동작함**) |
 | — | GET `/traces?session_id=` | `fixtures/traces.json` |
 
 ### 역할별 정책 (`X-Role`)
@@ -96,6 +97,23 @@
 - 같은 이름의 속성이 경로상 여러 객체에 있으면 `"Account.acct_no"`처럼 객체를 붙여야 함
 - 지표 정의에 고정된 조건(예: 거래 유형 입금·출금)은 요청 필터로 바꿀 수 없음 (400)
 
+### 액션과 승인
+
+데이터를 바꾸는 행동은 바로 실행되지 않고 승인을 거침. 규칙은 `ontology.yaml`의 `action_types` 정의를 따름.
+
+| 단계 | 누가 | 결과 |
+| --- | --- | --- |
+| 요청 `POST /actions/freeze_account` | `allowed_roles` (manager) | 승인 대기(PENDING) 생성, 대상 데이터는 그대로 |
+| 승인 `POST /approvals/{id}/approve` | `approver_roles` (manager) | 실행 직전 대상 상태를 다시 확인하고 `effect` 적용 → EXECUTED |
+| 거절 `POST /approvals/{id}/reject` | `approver_roles` (manager) | REJECTED, 데이터 변화 없음 |
+| 목록 `GET /approvals?status=` | 승인 권한이 있는 역할 | `PENDING`(기본), `EXECUTED`, `REJECTED`, `ALL` |
+
+- 요청 body: `{"target_id": "110-000001", "params": {"reason": "..."}}`. `params`는 정의된 키만, 빈 값은 400
+- 409 `CONFLICT` (`fixtures/error_conflict.json`): 같은 대상에 승인 대기 요청이 이미 있음 / 대상 상태가 `effect.allowed_from`에 없음 (해지·이미 지급정지) / 이미 처리된 요청
+- 승인 응답의 `change`에 바뀐 속성과 이전·이후 값이 들어 있음
+- 에이전트는 `request_action`의 결과를 "승인 요청이 생성됨"으로 안내하고, 실행됐다고 말하지 않음
+- 사용자 인증이 없어 요청자와 승인자가 같은지는 검사하지 않음 (역할 기준으로만 통제)
+
 ### 오류 응답
 
 400·403·404·503은 모두 `{"detail": {"code": ..., "message": ...}}` 형식임 (`fixtures/error_invalid_request.json`).
@@ -104,7 +122,8 @@
 | --- | --- | --- | --- |
 | 400 | `INVALID_REQUEST` | 존재하지 않는 객체·속성·링크·지표, 정의에 없는 값, 잘못된 날짜 형식 | `message`(허용값 포함)를 LLM에 전달해 다시 시도 |
 | 403 | `FORBIDDEN_ROLE` | 역할 권한 없음 (마스킹 속성 필터, 허용되지 않은 액션) | `message`의 사유를 사용자에게 설명 |
-| 404 | `NOT_FOUND` | ID에 해당하는 객체 없음 | 사용자에게 없음을 알림 |
+| 404 | `NOT_FOUND` | ID에 해당하는 객체·승인 요청 없음 | 사용자에게 없음을 알림 |
+| 409 | `CONFLICT` | 현재 상태에서 할 수 없는 액션·승인 | `message`를 사용자에게 설명 |
 | 422 | — | 요청 형식 오류 (헤더 누락 등) | 코드 버그, 수정 필요 |
 | 501 | — | 아직 구현되지 않음 | 개발 중에만 발생 |
 | 503 | `DB_UNAVAILABLE` | DB 연결 실패 | 잠시 후 재시도 |

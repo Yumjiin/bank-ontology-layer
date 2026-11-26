@@ -1,9 +1,7 @@
 {
   "detail": {
     "code": "FORBIDDEN_ROLE",
-    "message": "teller 역할은 freeze_account를 요청할 수 없습니다. 허용 역할: manager",
-    "action_type": "freeze_account",
-    "role": "teller",
-    "trace_id": "t-0005"
+    "message": "teller 역할은 freeze_account를 요청할 수 없음. 허용 역할: manager",
+    "role": "teller"
   }
 }
