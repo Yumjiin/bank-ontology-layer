@@ -1,17 +1,9 @@
 """OpenAI function calling에 제공하는 온톨로지 도구 정의."""
 
-import json
 import os
-from pathlib import Path
+from urllib.parse import quote
 
 import requests
-
-FIXTURES = Path(__file__).resolve().parents[1] / "docs" / "fixtures"
-TOOL_FIXTURES = {
-    "search_objects": "objects_search.json",
-    "get_linked_objects": "linked_objects.json",
-    "get_metric": "metric.json",
-}
 
 FILTERS = {
     "type": "array",
@@ -55,7 +47,7 @@ TOOLS = [
     _function("describe_ontology", "사용 가능한 객체, 속성, 링크, 지표, 액션을 확인한다.", {}, []),
     _function(
         "search_objects",
-        "필터에 맞는 온톨로지 객체를 검색한다.",
+        "필터에 맞는 객체를 검색한다. 전체 개수는 응답의 total을 사용한다.",
         {
             "object_type": {"type": "string", "description": "예: Customer"},
             "filters": FILTERS,
@@ -66,7 +58,7 @@ TOOLS = [
     ),
     _function(
         "get_linked_objects",
-        "기준 객체의 링크를 따라 연결된 객체를 조회한다.",
+        "기준 객체의 링크를 따라 연결된 객체를 조회한다. 전체 개수는 응답의 total을 사용한다.",
         {
             "object_type": {"type": "string"},
             "object_id": {"type": "string"},
@@ -78,7 +70,7 @@ TOOLS = [
     ),
     _function(
         "get_metric",
-        "지정 기간의 온톨로지 지표를 계산한다. 집계 질문에 우선 사용한다.",
+        "활성 고객 수, 순입금액 등 업무 정의가 필요한 온톨로지 지표를 계산한다.",
         {
             "name": {"type": "string", "description": "예: active_customers, net_deposit"},
             "period": {
@@ -112,35 +104,45 @@ TOOLS = [
 ]
 
 
-def call_tool(name: str, arguments: dict, role: str, session_id: str) -> dict:
-    """온톨로지 메타데이터와 개발용 예시 응답을 반환한다."""
-    if name == "describe_ontology":
-        api_url = os.getenv("ONTOLOGY_API_URL", "http://localhost:8001").rstrip("/")
-        response = requests.get(
-            f"{api_url}/ontology",
-            headers={"X-Role": role, "X-Session-Id": session_id},
-            timeout=5,
-        )
+def service_request(method: str, path: str, role: str, session_id: str, body=None) -> dict:
+    api_url = os.getenv("ONTOLOGY_API_URL", "http://localhost:8001").rstrip("/")
+    response = requests.request(
+        method,
+        f"{api_url}{path}",
+        headers={"X-Role": role, "X-Session-Id": session_id},
+        json=body,
+        timeout=5,
+    )
+    if response.status_code not in (400, 403, 404, 422, 501, 503):
         response.raise_for_status()
-        return response.json()
-
-    if name == "request_action":
-        if arguments.get("action_type") != "freeze_account":
-            return {"detail": "지원하는 액션은 freeze_account입니다."}
-        filename = "action_pending.json" if role == "manager" else "action_forbidden.json"
-    else:
-        filename = TOOL_FIXTURES.get(name)
-        if filename is None:
-            return {"detail": f"지원하지 않는 도구입니다: {name}"}
-
-    result = json.loads((FIXTURES / filename).read_text(encoding="utf-8"))
-    if filename == "action_forbidden.json":
-        result["detail"]["role"] = role
-        result["detail"]["message"] = f"{role} 역할은 freeze_account를 요청할 수 없습니다. 허용 역할: manager"
-    if name == "get_metric" and (
-        arguments.get("name") != result["metric"]
-        or arguments.get("period") != result["period"]
-        or arguments.get("filters")
-    ):
-        return {"detail": "지표 예시는 필터 없는 2026년 3분기 active_customers만 제공합니다."}
+    result = response.json()
+    if not isinstance(result, dict):
+        raise requests.RequestException("잘못된 온톨로지 서비스 응답 형식")
     return result
+
+
+TOOL_ROUTES = {
+    "search_objects": ("/objects/search", ()),
+    "get_linked_objects": ("/objects/{object_type}/{object_id}/links/{link}", ("object_type", "object_id", "link")),
+    "get_metric": ("/metrics/{name}", ("name",)),
+    "request_action": ("/actions/{action_type}", ("action_type",)),
+}
+
+
+def call_tool(name: str, arguments: dict, role: str, session_id: str) -> dict:
+    """도구 인수를 온톨로지 서비스 API 요청으로 변환한다."""
+    if name == "describe_ontology":
+        return service_request("GET", "/ontology", role, session_id)
+
+    if name not in TOOL_ROUTES:
+        return {"detail": f"지원하지 않는 도구입니다: {name}"}
+
+    route, path_keys = TOOL_ROUTES[name]
+    body = arguments.copy()
+    path_values = {}
+    for key in path_keys:
+        value = body.pop(key, None)
+        if not isinstance(value, str) or not value.strip():
+            return {"detail": f"{key}에 비어 있지 않은 문자열을 전달하세요."}
+        path_values[key] = quote(value, safe="")
+    return service_request("POST", route.format(**path_values), role, session_id, body)

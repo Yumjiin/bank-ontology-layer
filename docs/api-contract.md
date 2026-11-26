@@ -50,11 +50,22 @@
 | request_action (거부) | POST `/actions/{action_type}` | `fixtures/action_forbidden.json` (HTTP 403) |
 | — | GET `/approvals?status=PENDING` | `fixtures/approvals.json` |
 | — | POST `/approvals/{id}/approve` | `fixtures/approve.json` |
+| — | POST `/traces` | 실행 단계 저장, HTTP 201과 `trace_id`, `step` 반환 |
 | — | GET `/traces?session_id=` | `fixtures/traces.json` |
 
-### 검색 응답의 `has_more`
+### 에이전트 실행 기록
 
-`search_objects`는 `limit`보다 결과가 많으면 `has_more: true`를 돌려줌. 에이전트는 이때 결과를 전체로 간주하지 말고, 필터를 좁히거나 개수·합계 질문이면 `get_metric`을 사용해야 함.
+에이전트는 질문마다 하나의 `trace_id`를 만들고, 실행 시작과 각 모델·도구 호출을 `agent_trace`에 순서대로 저장함. 첫 온톨로지 조회와 실패한 호출도 기록함.
+
+`POST /traces`는 `trace_id`, `step`(1부터 시작), `span_type`(`invoke_agent`, `chat`, `execute_tool`), `output_summary`를 받음. 단계에 따라 `tool_name`, `input`, `sql_text`, `policy_decision`, `latency_ms`를 함께 보낼 수 있음. 세션은 `X-Session-Id` 헤더로 지정함.
+
+`GET /traces`는 쿼리의 `session_id`와 `X-Session-Id`가 일치하는 세션의 기록을 저장 순서로 반환함. 각 항목의 `trace_id`로 같은 질문의 단계를 묶을 수 있음.
+
+### 개수 질문의 `total`
+
+`search_objects`와 `get_linked_objects`는 `limit`과 관계없이 조건에 맞는 전체 개수 `total`을 반환함. `count`는 응답에 담긴 항목 수이며, `total > count`이면 `has_more`가 true임.
+
+`몇 명/몇 건` 질문은 `total`로 답함. `get_metric`은 활성 고객·순입금액처럼 업무 정의가 필요한 지표에 사용함. 지표 필터에는 `/ontology`의 해당 지표에 있는 `filterable_objects`에 나열된 객체의 속성을 사용함.
 
 ### 오류 응답
 
@@ -63,7 +74,7 @@
 | 상태 코드 | code | 의미 | 에이전트 처리 |
 | --- | --- | --- | --- |
 | 400 | `INVALID_REQUEST` | 존재하지 않는 객체·속성·링크·지표, 정의에 없는 값, 잘못된 날짜 형식 | `message`(허용값 포함)를 LLM에 전달해 다시 시도 |
-| 403 | `FORBIDDEN_ROLE` | 역할 권한 없음 | `message`의 사유를 사용자에게 설명 |
+| 403 | `FORBIDDEN_ROLE` | 역할 권한 없음 | `message`를 그대로 사용자에게 설명하고 다른 속성으로 우회 조회하지 않음 |
 | 404 | `NOT_FOUND` | ID에 해당하는 객체 없음 | 사용자에게 없음을 알림 |
 | 422 | — | 요청 형식 오류 (헤더 누락 등) | 코드 버그, 수정 필요 |
 | 501 | — | 아직 구현되지 않음 | 개발 중에만 발생 |

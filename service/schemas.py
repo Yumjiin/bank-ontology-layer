@@ -44,3 +44,15 @@ class MetricRequest(BaseModel):
 class ActionRequest(BaseModel):
     target_id: str = Field(examples=["1002-001-000123"])
     params: dict[str, Any] = Field(default_factory=dict, examples=[{"reason": "보이스피싱 의심"}])
+
+
+class TraceStep(BaseModel):
+    trace_id: str = Field(min_length=1)
+    step: int = Field(ge=1)
+    span_type: Literal["invoke_agent", "chat", "execute_tool"]
+    tool_name: str | None = None
+    input: Any = None
+    output_summary: str
+    sql_text: str | None = None
+    policy_decision: str | None = None
+    latency_ms: int | None = Field(default=None, ge=0)

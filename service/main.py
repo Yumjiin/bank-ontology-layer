@@ -1,7 +1,6 @@
 """Ontology Service (FastAPI).
 
-현재 상태: /health, /ontology, /objects/search, /objects/{type}/{id} 동작.
-나머지 엔드포인트는 계약(요청 형식)만 정의하고 501을 반환함.
+온톨로지, 객체 조회, 에이전트 실행 기록 API를 제공함.
 응답 형식은 docs/fixtures/의 예시 JSON을 따름.
 """
 
@@ -13,12 +12,13 @@ from typing import Literal
 
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
+from sqlalchemy import JSON, bindparam, text
 from sqlalchemy.exc import OperationalError
 
 import query
 from compiler import CompileError, check_default_filters
 from metadata import OntologyError, load_ontology
-from schemas import ActionRequest, LinkRequest, MetricRequest, SearchRequest
+from schemas import ActionRequest, LinkRequest, MetricRequest, SearchRequest, TraceStep
 
 ONTOLOGY_PATH = os.environ.get("ONTOLOGY_PATH", "/app/ontology/ontology.yaml")
 RoleHeader = Literal["teller", "marketer", "manager"]
@@ -85,7 +85,6 @@ def search_objects(
     x_role: RoleHeader = Header(...),
     x_session_id: str = Header(...),
 ):
-    # x_role은 #5 policy에서, x_session_id는 #17 실행 기록에서 사용함
     return query.search_objects(request.app.state.engine, request.app.state.ontology, body)
 
 
@@ -147,6 +146,46 @@ def reject(request_id: int, x_role: RoleHeader = Header(...)):
     not_implemented("reject")
 
 
+@app.post("/traces", status_code=201)
+def save_trace_step(
+    body: TraceStep,
+    request: Request,
+    x_role: RoleHeader = Header(...),
+    x_session_id: str = Header(...),
+):
+    stmt = text("""
+        INSERT INTO agent_trace (
+            trace_id, session_id, step, span_type, tool_name, input,
+            output_summary, sql_text, policy_decision, latency_ms
+        ) VALUES (
+            :trace_id, :session_id, :step, :span_type, :tool_name, :input,
+            :output_summary, :sql_text, :policy_decision, :latency_ms
+        )
+    """).bindparams(bindparam("input", type_=JSON(none_as_null=True)))
+    with request.app.state.engine.begin() as conn:
+        conn.execute(stmt, {**body.model_dump(), "session_id": x_session_id})
+    return {"trace_id": body.trace_id, "step": body.step}
+
+
 @app.get("/traces")
-def list_traces(session_id: str):
-    not_implemented("list_traces")
+def list_traces(
+    session_id: str,
+    request: Request,
+    x_role: RoleHeader = Header(...),
+    x_session_id: str = Header(...),
+):
+    if session_id != x_session_id:
+        raise HTTPException(status_code=403, detail={
+            "code": "FORBIDDEN_SESSION",
+            "message": "현재 세션의 실행 기록만 조회할 수 있습니다.",
+        })
+    stmt = text("""
+        SELECT trace_id, step, span_type, tool_name, input,
+               output_summary, sql_text, policy_decision, latency_ms
+        FROM agent_trace
+        WHERE session_id = :session_id
+        ORDER BY id
+    """).columns(input=JSON)
+    with request.app.state.engine.connect() as conn:
+        items = [dict(row) for row in conn.execute(stmt, {"session_id": session_id}).mappings()]
+    return {"session_id": session_id, "items": items}

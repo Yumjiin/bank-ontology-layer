@@ -1,8 +1,10 @@
 {
   "session_id": "3f1c2e7a-0000-0000-0000-000000000000",
   "items": [
-    { "step": 1, "span_type": "chat", "tool_name": null, "output_summary": "get_metric 호출 결정", "latency_ms": 820 },
-    { "step": 2, "span_type": "execute_tool", "tool_name": "get_metric", "input": { "name": "active_customers", "period": { "start": "2026-07-01", "end": "2026-09-30" } }, "sql_text": "SELECT COUNT(DISTINCT ...", "policy_decision": "ALLOW", "latency_ms": 45 },
-    { "step": 3, "span_type": "chat", "tool_name": null, "output_summary": "최종 답변 생성", "latency_ms": 640 }
+    { "trace_id": "t-0001", "step": 1, "span_type": "invoke_agent", "output_summary": "에이전트 실행 시작" },
+    { "trace_id": "t-0001", "step": 2, "span_type": "execute_tool", "tool_name": "describe_ontology", "input": {}, "output_summary": "도구 호출 완료", "latency_ms": 10 },
+    { "trace_id": "t-0001", "step": 3, "span_type": "chat", "output_summary": "도구 호출 1건 결정", "latency_ms": 820 },
+    { "trace_id": "t-0001", "step": 4, "span_type": "execute_tool", "tool_name": "get_metric", "input": { "name": "active_customers", "period": { "start": "2026-07-01", "end": "2026-09-30" } }, "output_summary": "도구 호출 완료", "sql_text": "SELECT COUNT(DISTINCT ...", "policy_decision": "ALLOW", "latency_ms": 45 },
+    { "trace_id": "t-0001", "step": 5, "span_type": "chat", "output_summary": "최종 답변 생성", "latency_ms": 640 }
   ]
 }
