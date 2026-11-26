@@ -46,10 +46,36 @@ link_types:
     from: Customer
     to: Account
     via: { table: acct_rel, from_key: cust_no, to_key: acct_no, condition: "rel_cd = '01'" }
+  delegated:
+    from: Customer
+    to: Account
+    via: { table: acct_rel, from_key: cust_no, to_key: acct_no, condition: "rel_cd = '02'" }
   has_transaction:
     from: Account
     to: Transaction
     join: { from_key: acct_no, to_key: acct_no }
+
+metrics:
+  active_customers:
+    description: 기간 내 명의인 계좌에서 입금·출금이 있는 고객 수
+    object: Customer
+    path: [owns, has_transaction]
+    period: Transaction.date
+    filters:
+      - { property: Transaction.type, op: in, value: [입금, 출금] }
+    measure: { agg: count_distinct, property: Customer.cust_no }
+    unit: 명
+  net_deposit:
+    description: 입금 합계 - 출금 합계
+    object: Transaction
+    period: Transaction.date
+    filters:
+      - { property: Transaction.type, op: in, value: [입금, 출금] }
+    measure:
+      agg: sum
+      property: Transaction.amount
+      sign: { property: Transaction.type, negative: [출금] }
+    unit: 원
 
 roles:
   teller: { mask: [], block: [] }
