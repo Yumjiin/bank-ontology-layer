@@ -9,6 +9,8 @@
 --    작성 원칙: 원본의 "함정"을 고치지 않고 그대로 보존함 (design.md 3-1)
 --    - 컬럼명·타입은 원본 SQLite DDL과 1:1로 맞춤 (attr1~attr5 같은 의미 없는 이름 포함)
 --    - 날짜는 DATE가 아니라 'YYYYMMDD' 문자열(TEXT) 그대로 둠
+--      날짜·시각 컬럼은 COLLATE "C"(글자 코드 순 비교)로 지정함. PostgreSQL 기본 정렬(en_US.utf8)은
+--      '-' 같은 기호를 무시해 '2026-09-01'처럼 형식을 잘못 써도 맞아버림. 발표 데모(SQLite)와 같은 비교가 되도록 맞춤
 --    - 코드값(A/D/C, 01/02, IN/OUT/INT/FEE, Y/N)도 원본 값 그대로 둠
 --    → 이 함정들을 온톨로지 레이어가 해결하는 것을 보여주는 것이 프로젝트의 핵심이므로
 --      DB 단계에서 미리 정리하지 않음
@@ -21,7 +23,7 @@ CREATE TABLE IF NOT EXISTS brnc (
     brnc_cd     TEXT PRIMARY KEY,
     attr1       TEXT,
     attr2       TEXT,
-    attr3       TEXT,
+    attr3       TEXT COLLATE "C",
     attr4       INTEGER,
     attr5       TEXT
 );
@@ -30,9 +32,9 @@ CREATE TABLE IF NOT EXISTS brnc (
 CREATE TABLE IF NOT EXISTS cust (
     cust_no     TEXT PRIMARY KEY,
     cust_nm     TEXT,              -- PII (marketer 역할에서 마스킹 대상)
-    birth_ymd   TEXT,              -- 'YYYYMMDD'
+    birth_ymd   TEXT COLLATE "C",  -- 'YYYYMMDD'
     sex_cd      TEXT,              -- 1 남성, 2 여성
-    join_ymd    TEXT,              -- 'YYYYMMDD'
+    join_ymd    TEXT COLLATE "C",  -- 'YYYYMMDD'
     cust_grd_cd TEXT               -- 01 VIP, 02 일반 (원본에 없던 컬럼, seed.py의 규칙으로 계산)
 );
 
@@ -40,7 +42,7 @@ CREATE TABLE IF NOT EXISTS cust (
 CREATE TABLE IF NOT EXISTS acct (
     acct_no      TEXT PRIMARY KEY,
     prod_cd      TEXT,             -- DD01 보통예금, SV01 정기적금
-    open_ymd     TEXT,             -- 'YYYYMMDD'
+    open_ymd     TEXT COLLATE "C", -- 'YYYYMMDD'
     acct_stat_cd TEXT,             -- A 정상, D 휴면, C 해지
     brnc_cd      TEXT REFERENCES brnc(brnc_cd)
 );
@@ -59,8 +61,8 @@ CREATE TABLE IF NOT EXISTS acct_rel (
 CREATE TABLE IF NOT EXISTS txn (
     txn_id      INTEGER PRIMARY KEY,
     acct_no     TEXT REFERENCES acct(acct_no),
-    txn_dt      TEXT,              -- 'YYYYMMDD'
-    txn_tm      TEXT,              -- 'HHMMSS'
+    txn_dt      TEXT COLLATE "C",  -- 'YYYYMMDD'
+    txn_tm      TEXT COLLATE "C",  -- 'HHMMSS'
     txn_cd      TEXT,              -- IN 입금, OUT 출금, INT 이자, FEE 수수료
     amt         INTEGER,           -- 항상 양수
     cncl_yn     TEXT,              -- Y 취소 (모든 집계에서 제외)
