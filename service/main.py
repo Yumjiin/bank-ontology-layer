@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from contextlib import asynccontextmanager
 from typing import Literal
@@ -17,6 +18,7 @@ from sqlalchemy.exc import OperationalError
 
 import actions
 import query
+import schema_check
 from compiler import CompileError, check_default_filters
 from policy import PolicyError
 from metadata import OntologyError, load_ontology
@@ -24,6 +26,16 @@ from schemas import ActionRequest, LinkRequest, MetricRequest, SearchRequest, Tr
 
 ONTOLOGY_PATH = os.environ.get("ONTOLOGY_PATH", "/app/ontology/ontology.yaml")
 RoleHeader = Literal["teller", "marketer", "manager"]
+log = logging.getLogger("uvicorn.error")
+
+# 온톨로지 밖에서 서비스가 직접 쓰는 테이블 (DB 정합성 검증 대상)
+SYSTEM_TABLES = {
+    "action_request": [c.name for c in actions.ACTION_REQUEST.columns],
+    "agent_trace": [
+        "id", "trace_id", "session_id", "step", "span_type", "tool_name", "input",
+        "output_summary", "sql_text", "policy_decision", "latency_ms",
+    ],
+}
 
 
 @asynccontextmanager
@@ -35,6 +47,19 @@ async def lifespan(app: FastAPI):
         raise OntologyError("default_filters 검증 실패:\n- " + "\n- ".join(errors))
     app.state.ontology = ontology
     engine = query.make_engine()
+
+    # DB 정합성 검증: 테이블·컬럼·타입이 맞지 않으면 기동 중단 (설계서 4-3)
+    # DB에 연결할 수 없으면 기동은 하고 경고만 남김 (요청 시 503으로 응답)
+    try:
+        errors = schema_check.check_database(engine, ontology, SYSTEM_TABLES)
+    except OperationalError:
+        log.warning("DB에 연결할 수 없어 정합성 검증을 건너뜀. db 컨테이너와 DATABASE_URL을 확인")
+    else:
+        if errors:
+            engine.dispose()
+            raise OntologyError("DB 정합성 검증 실패:\n- " + "\n- ".join(errors))
+        log.info("DB 정합성 검증 통과 (객체 %d개, 링크 %d개)", len(ontology.object_types), len(ontology.link_types))
+
     app.state.engine = engine
     yield
     engine.dispose()  # app.state.engine이 바뀌었더라도(테스트 등) 직접 만든 엔진만 정리함
