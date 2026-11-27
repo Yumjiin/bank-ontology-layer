@@ -51,7 +51,22 @@ services:
     depends_on:
       - service
 
-  # 평가 서비스는 eval 구현 시 추가 (담당: 지영, docs/issues.md 참고)
+  # 평가 (담당: 지영). 평소 docker compose up에는 포함되지 않고 실행할 때만 띄움
+  #   docker compose run --rm eval            # 조건 A·B 각 3회
+  #   docker compose run --rm eval --dry-run  # LLM 없이 채점기 확인
+  #   docker compose run --rm eval --final    # 최종 결과 (eval/results/, git에 올림)
+  eval:
+    build:
+      context: .
+      dockerfile: eval/Dockerfile
+    env_file: .env
+    volumes:
+      - ./eval/runs:/app/eval/runs
+      - ./eval/results:/app/eval/results
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+    profiles: ["eval"]
 
 volumes:
   pgdata:
