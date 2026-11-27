@@ -1,0 +1,2613 @@
+{
+  "meta": {
+    "started_at": "2026-11-27T09:27:19",
+    "model": "gpt-6-luna",
+    "conditions": [
+      "A",
+      "B"
+    ],
+    "runs": 3,
+    "dry_run": false,
+    "common_header": "기준 연도는 2026년입니다. 연도 없이 3분기를 묻는 경우 2026-07-01부터 2026-09-30까지입니다."
+  },
+  "records": [
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q01",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "명의인"
+      ],
+      "answer": 165,
+      "value": 278,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(DISTINCT ar.cust_no) AS active_customer_count\nFROM txn t\nJOIN acct_rel ar ON ar.acct_no = t.acct_no\nWHERE t.txn_dt >= '20260701'\n  AND t.txn_dt < '20261001'\n  AND t.cncl_yn <> 'Y';",
+      "latency_s": 1.67
+    },
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q02",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "금액방향"
+      ],
+      "answer": 389638000,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(\n    CASE\n        WHEN txn_cd IN ('입금', 'DEP') THEN amt\n        WHEN txn_cd IN ('출금', 'WDR') THEN -amt\n        ELSE 0\n    END\n), 0) AS 순입금액\nFROM txn\nWHERE txn_dt >= '2026-09-01'\n  AND txn_dt < '2026-10-01'\n  AND COALESCE(cncl_yn, 'N') <> 'Y';",
+      "latency_s": 2.108
+    },
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q03",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "명의인"
+      ],
+      "answer": 234,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(DISTINCT ar.cust_no)\nFROM acct_rel AS ar\nJOIN txn AS t ON t.acct_no = ar.acct_no\nWHERE t.txn_dt >= '2026-01-01'\n  AND t.txn_dt < '2026-07-01'\n  AND t.cncl_yn <> 'Y';",
+      "latency_s": 1.736
+    },
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q04",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "명의인"
+      ],
+      "answer": 164,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(DISTINCT ar.cust_no)\nFROM acct_rel AS ar\nJOIN acct AS a ON a.acct_no = ar.acct_no\nJOIN txn AS t ON t.acct_no = a.acct_no\nWHERE t.txn_dt >= '2026-07-01'\n  AND t.txn_dt < '2026-08-01'\n  AND t.cncl_yn = 'N';",
+      "latency_s": 1.534
+    },
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q05",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "금액방향"
+      ],
+      "answer": 398491000,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(CASE WHEN txn_cd = '입금' THEN amt WHEN txn_cd = '출금' THEN -amt ELSE 0 END), 0) AS net_deposit_amount\nFROM txn\nWHERE txn_dt >= '2026-08-01'\n  AND txn_dt < '2026-09-01'\n  AND cncl_yn = 'N';",
+      "latency_s": 1.631
+    },
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q06",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "금액방향"
+      ],
+      "answer": 1501034000,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(\n    CASE\n        WHEN txn_cd = '입금' THEN amt\n        WHEN txn_cd = '출금' THEN -amt\n        ELSE 0\n    END\n), 0) AS 순입금액\nFROM txn\nWHERE txn_dt >= '2026-01-01'\n  AND txn_dt < '2026-04-01'\n  AND COALESCE(cncl_yn, 'N') <> 'Y';",
+      "latency_s": 1.841
+    },
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q07",
+      "tags": [
+        "metric",
+        "날짜",
+        "취소",
+        "금액방향",
+        "코드값"
+      ],
+      "answer": 578305000,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(\n    CASE\n        WHEN txn_cd = '입금' THEN amt\n        WHEN txn_cd = '출금' THEN -amt\n        ELSE 0\n    END\n), 0) AS 순입금액\nFROM txn\nWHERE txn_dt >= '2026-07-01'\n  AND txn_dt < '2026-10-01'\n  AND chnl_cd = '모바일뱅킹'\n  AND cncl_yn = 'N';",
+      "latency_s": 1.529
+    },
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q08",
+      "tags": [
+        "metric",
+        "날짜",
+        "취소",
+        "금액방향",
+        "코드값"
+      ],
+      "answer": 69872000,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(CASE WHEN txn_cd = '입금' THEN amt WHEN txn_cd = '출금' THEN -amt ELSE 0 END), 0) AS 순입금액\nFROM txn\nWHERE txn_dt >= '20260901'\n  AND txn_dt < '20261001'\n  AND chnl_cd = '창구'\n  AND cncl_yn = 'N';",
+      "latency_s": 1.733
+    },
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q09",
+      "tags": [
+        "search",
+        "코드값"
+      ],
+      "answer": 173,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS female_customer_count\nFROM cust\nWHERE sex_cd = 'F';",
+      "latency_s": 1.19
+    },
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q10",
+      "tags": [
+        "search",
+        "날짜"
+      ],
+      "answer": 20,
+      "value": 20,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS customer_count\nFROM cust\nWHERE join_ymd >= '20200101'\n  AND join_ymd < '20210101';",
+      "latency_s": 1.519
+    },
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q11",
+      "tags": [
+        "search",
+        "날짜"
+      ],
+      "answer": 73,
+      "value": 73,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS customer_count\nFROM cust\nWHERE birth_ymd >= '19900101'\n  AND birth_ymd < '20000101';",
+      "latency_s": 1.891
+    },
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q12",
+      "tags": [
+        "search",
+        "등급",
+        "코드값"
+      ],
+      "answer": 65,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS vip_customer_count\nFROM cust\nWHERE cust_grd_cd = 'VIP';",
+      "latency_s": 1.562
+    },
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q13",
+      "tags": [
+        "search",
+        "코드값"
+      ],
+      "answer": 36,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS dormant_account_count\nFROM acct\nWHERE acct_stat_cd = '휴면';",
+      "latency_s": 1.425
+    },
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q14",
+      "tags": [
+        "search",
+        "코드값"
+      ],
+      "answer": 22,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS closed_acct_count\nFROM acct\nWHERE acct_stat_cd = '해지';",
+      "latency_s": 1.379
+    },
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q15",
+      "tags": [
+        "search",
+        "코드값"
+      ],
+      "answer": 47,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*) FROM acct WHERE prod_cd = '정기적금';",
+      "latency_s": 1.233
+    },
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q16",
+      "tags": [
+        "search",
+        "날짜"
+      ],
+      "answer": 27,
+      "value": 27,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*)\nFROM acct\nWHERE open_ymd >= '20200101'\n  AND open_ymd < '20210101';",
+      "latency_s": 1.231
+    },
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q17",
+      "tags": [
+        "search",
+        "날짜",
+        "취소"
+      ],
+      "answer": 28,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS cancelled_transaction_count\nFROM txn\nWHERE txn_dt >= '2026-09-01'\n  AND txn_dt < '2026-10-01'\n  AND cncl_yn = 'Y';",
+      "latency_s": 1.761
+    },
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q18",
+      "tags": [
+        "search",
+        "attr",
+        "코드값"
+      ],
+      "answer": 3,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS branch_count\nFROM brnc\nWHERE attr1 LIKE '%서울%';",
+      "latency_s": 1.219
+    },
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q19",
+      "tags": [
+        "search",
+        "attr"
+      ],
+      "answer": 3,
+      "value": 3,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS branch_count\nFROM brnc\nWHERE attr4 >= 20;",
+      "latency_s": 1.124
+    },
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q20",
+      "tags": [
+        "search",
+        "attr",
+        "코드값"
+      ],
+      "answer": 3,
+      "value": 1,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*)\nFROM brnc\nWHERE attr1 LIKE '%인천%';",
+      "latency_s": 1.323
+    },
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q21",
+      "tags": [
+        "link",
+        "대조군"
+      ],
+      "answer": 2,
+      "value": 2,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*)\nFROM acct_rel\nWHERE cust_no = 'C00003';",
+      "latency_s": 1.135
+    },
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q22",
+      "tags": [
+        "link",
+        "명의인"
+      ],
+      "answer": "110-000127",
+      "value": [],
+      "correct": false,
+      "error": null,
+      "sql": "SELECT acct_no\nFROM acct_rel\nWHERE cust_no = 'C00086'\n  AND rel_cd = '대리인';",
+      "latency_s": 1.507
+    },
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q23",
+      "tags": [
+        "link",
+        "날짜",
+        "시스템거래"
+      ],
+      "answer": 4,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*)\nFROM txn\nWHERE acct_no = '110-000001'\n  AND txn_dt >= '2026-09-01'\n  AND txn_dt < '2026-10-01'\n  AND txn_cd = '입금';",
+      "latency_s": 1.184
+    },
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q24",
+      "tags": [
+        "link",
+        "attr"
+      ],
+      "answer": "강남지점",
+      "value": "강남지점",
+      "correct": true,
+      "error": null,
+      "sql": "SELECT brnc.attr1\nFROM acct\nJOIN brnc ON acct.brnc_cd = brnc.brnc_cd\nWHERE acct.acct_no = '110-000001';",
+      "latency_s": 1.268
+    },
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q25",
+      "tags": [
+        "search",
+        "대조군"
+      ],
+      "answer": 8,
+      "value": 8,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS total_branch_count\nFROM brnc;",
+      "latency_s": 1.48
+    },
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q26",
+      "tags": [
+        "search",
+        "대조군"
+      ],
+      "answer": "B001",
+      "value": "B001",
+      "correct": true,
+      "error": null,
+      "sql": "SELECT brnc_cd\nFROM acct\nWHERE acct_no = '110-000001';",
+      "latency_s": 1.609
+    },
+    {
+      "condition": "A",
+      "run": 1,
+      "id": "q27",
+      "tags": [
+        "search",
+        "대조군"
+      ],
+      "answer": "송채원",
+      "value": "송채원",
+      "correct": true,
+      "error": null,
+      "sql": "SELECT cust_nm\nFROM cust\nWHERE cust_no = 'C00001';",
+      "latency_s": 1.357
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q01",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "명의인"
+      ],
+      "answer": 165,
+      "value": 278,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(DISTINCT ar.cust_no)\nFROM acct_rel AS ar\nJOIN txn AS t ON t.acct_no = ar.acct_no\nWHERE t.txn_dt >= '20260701'\n  AND t.txn_dt < '20261001'\n  AND t.cncl_yn = 'N';",
+      "latency_s": 1.488
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q02",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "금액방향"
+      ],
+      "answer": 389638000,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(\n    CASE\n        WHEN txn_cd = '입금' THEN amt\n        WHEN txn_cd = '출금' THEN -amt\n        ELSE 0\n    END\n), 0) AS 순입금액\nFROM txn\nWHERE txn_dt >= '2026-09-01'\n  AND txn_dt < '2026-10-01'\n  AND COALESCE(cncl_yn, 'N') <> 'Y';",
+      "latency_s": 1.695
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q03",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "명의인"
+      ],
+      "answer": 234,
+      "value": 300,
+      "correct": false,
+      "error": null,
+      "sql": "WITH active_customers AS (\n    SELECT DISTINCT ar.cust_no\n    FROM txn t\n    JOIN acct_rel ar ON ar.acct_no = t.acct_no\n    WHERE t.txn_dt >= '20260101'\n      AND t.txn_dt < '20260701'\n      AND t.cncl_yn <> 'Y'\n)\nSELECT COUNT(*) AS active_customer_count\nFROM active_customers;",
+      "latency_s": 1.677
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q04",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "명의인"
+      ],
+      "answer": 164,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(DISTINCT ar.cust_no)\nFROM acct_rel ar\nJOIN acct a ON a.acct_no = ar.acct_no\nWHERE a.acct_stat_cd = '활성'\n  AND a.open_ymd <= '2026-07-31'\n  AND (a.acct_stat_cd <> '해지' OR a.acct_stat_cd IS NULL);",
+      "latency_s": 1.481
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q05",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "금액방향"
+      ],
+      "answer": 398491000,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(CASE WHEN txn_cd = '입금' THEN amt WHEN txn_cd = '출금' THEN -amt ELSE 0 END), 0) AS 순입금액\nFROM txn\nWHERE txn_dt >= '2026-08-01'\n  AND txn_dt < '2026-09-01'\n  AND cncl_yn = 'N';",
+      "latency_s": 1.943
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q06",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "금액방향"
+      ],
+      "answer": 1501034000,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(\n    CASE\n        WHEN txn_cd = '입금' THEN amt\n        WHEN txn_cd = '출금' THEN -amt\n        ELSE 0\n    END\n), 0) AS 순입금액\nFROM txn\nWHERE txn_dt >= '20260101'\n  AND txn_dt < '20260401'\n  AND COALESCE(cncl_yn, 'N') <> 'Y';",
+      "latency_s": 1.61
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q07",
+      "tags": [
+        "metric",
+        "날짜",
+        "취소",
+        "금액방향",
+        "코드값"
+      ],
+      "answer": 578305000,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(CASE WHEN txn_cd = '입금' THEN amt WHEN txn_cd = '출금' THEN -amt ELSE 0 END), 0) AS net_deposit_amount\nFROM txn\nWHERE txn_dt >= '20260701'\n  AND txn_dt < '20261001'\n  AND chnl_cd = '모바일뱅킹'\n  AND COALESCE(cncl_yn, 'N') <> 'Y';",
+      "latency_s": 1.721
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q08",
+      "tags": [
+        "metric",
+        "날짜",
+        "취소",
+        "금액방향",
+        "코드값"
+      ],
+      "answer": 69872000,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(\n    CASE\n        WHEN txn_cd = '입금' THEN amt\n        WHEN txn_cd = '출금' THEN -amt\n        ELSE 0\n    END\n), 0) AS 순입금액\nFROM txn\nWHERE txn_dt >= '2026-09-01'\n  AND txn_dt < '2026-10-01'\n  AND chnl_cd = '창구'\n  AND cncl_yn = 'N';",
+      "latency_s": 1.696
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q09",
+      "tags": [
+        "search",
+        "코드값"
+      ],
+      "answer": 173,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*) FROM cust WHERE sex_cd = '여';",
+      "latency_s": 1.654
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q10",
+      "tags": [
+        "search",
+        "날짜"
+      ],
+      "answer": 20,
+      "value": 20,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*)\nFROM cust\nWHERE join_ymd >= '20200101'\n  AND join_ymd < '20210101';",
+      "latency_s": 1.642
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q11",
+      "tags": [
+        "search",
+        "날짜"
+      ],
+      "answer": 73,
+      "value": 73,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS customer_count\nFROM cust\nWHERE birth_ymd >= '19900101'\n  AND birth_ymd < '20000101';",
+      "latency_s": 1.531
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q12",
+      "tags": [
+        "search",
+        "등급",
+        "코드값"
+      ],
+      "answer": 65,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*) FROM cust WHERE cust_grd_cd = 'VIP';",
+      "latency_s": 1.595
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q13",
+      "tags": [
+        "search",
+        "코드값"
+      ],
+      "answer": 36,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*)\nFROM acct\nWHERE acct_stat_cd = '휴면';",
+      "latency_s": 1.237
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q14",
+      "tags": [
+        "search",
+        "코드값"
+      ],
+      "answer": 22,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS 해지된_계좌_수\nFROM acct\nWHERE acct_stat_cd = '해지';",
+      "latency_s": 0.954
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q15",
+      "tags": [
+        "search",
+        "코드값"
+      ],
+      "answer": 47,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS account_count\nFROM acct\nWHERE prod_cd = '정기적금';",
+      "latency_s": 1.278
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q16",
+      "tags": [
+        "search",
+        "날짜"
+      ],
+      "answer": 27,
+      "value": 27,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS account_count\nFROM acct\nWHERE open_ymd >= '20200101'\n  AND open_ymd < '20210101';",
+      "latency_s": 1.368
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q17",
+      "tags": [
+        "search",
+        "날짜",
+        "취소"
+      ],
+      "answer": 28,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*)\nFROM txn\nWHERE txn_dt >= '2026-09-01'\n  AND txn_dt < '2026-10-01'\n  AND cncl_yn = 'Y';",
+      "latency_s": 1.689
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q18",
+      "tags": [
+        "search",
+        "attr",
+        "코드값"
+      ],
+      "answer": 3,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*) FROM brnc WHERE attr1 = '서울';",
+      "latency_s": 1.183
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q19",
+      "tags": [
+        "search",
+        "attr"
+      ],
+      "answer": 3,
+      "value": 3,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*)\nFROM brnc\nWHERE attr4 >= 20;",
+      "latency_s": 1.386
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q20",
+      "tags": [
+        "search",
+        "attr",
+        "코드값"
+      ],
+      "answer": 3,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*)\nFROM brnc\nWHERE attr1 = '인천';",
+      "latency_s": 1.436
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q21",
+      "tags": [
+        "link",
+        "대조군"
+      ],
+      "answer": 2,
+      "value": 2,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(DISTINCT acct_no)\nFROM acct_rel\nWHERE cust_no = 'C00003';",
+      "latency_s": 1.194
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q22",
+      "tags": [
+        "link",
+        "명의인"
+      ],
+      "answer": "110-000127",
+      "value": [],
+      "correct": false,
+      "error": null,
+      "sql": "SELECT ar.acct_no\nFROM acct_rel AS ar\nWHERE ar.cust_no = 'C00086'\n  AND ar.rel_cd = '대리인';",
+      "latency_s": 1.288
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q23",
+      "tags": [
+        "link",
+        "날짜",
+        "시스템거래"
+      ],
+      "answer": 4,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*)\nFROM txn\nWHERE acct_no = '110-000001'\n  AND txn_dt >= '2026-09-01'\n  AND txn_dt < '2026-10-01'\n  AND txn_cd = '입금';",
+      "latency_s": 1.357
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q24",
+      "tags": [
+        "link",
+        "attr"
+      ],
+      "answer": "강남지점",
+      "value": "강남지점",
+      "correct": true,
+      "error": null,
+      "sql": "SELECT b.attr1\nFROM acct AS a\nJOIN brnc AS b ON b.brnc_cd = a.brnc_cd\nWHERE a.acct_no = '110-000001';",
+      "latency_s": 1.197
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q25",
+      "tags": [
+        "search",
+        "대조군"
+      ],
+      "answer": 8,
+      "value": 8,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) FROM brnc;",
+      "latency_s": 1.252
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q26",
+      "tags": [
+        "search",
+        "대조군"
+      ],
+      "answer": "B001",
+      "value": "B001",
+      "correct": true,
+      "error": null,
+      "sql": "SELECT brnc_cd\nFROM acct\nWHERE acct_no = '110-000001';",
+      "latency_s": 1.203
+    },
+    {
+      "condition": "A",
+      "run": 2,
+      "id": "q27",
+      "tags": [
+        "search",
+        "대조군"
+      ],
+      "answer": "송채원",
+      "value": "송채원",
+      "correct": true,
+      "error": null,
+      "sql": "SELECT cust_nm\nFROM cust\nWHERE cust_no = 'C00001';",
+      "latency_s": 1.097
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q01",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "명의인"
+      ],
+      "answer": 165,
+      "value": 278,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(DISTINCT ar.cust_no)\nFROM txn AS t\nJOIN acct_rel AS ar ON ar.acct_no = t.acct_no\nWHERE t.txn_dt >= '20260701'\n  AND t.txn_dt < '20261001'\n  AND t.cncl_yn <> 'Y';",
+      "latency_s": 1.409
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q02",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "금액방향"
+      ],
+      "answer": 389638000,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(\n    CASE\n        WHEN txn_cd = '입금' THEN amt\n        WHEN txn_cd = '출금' THEN -amt\n        ELSE 0\n    END\n), 0) AS 순입금액\nFROM txn\nWHERE txn_dt >= '2026-09-01'\n  AND txn_dt < '2026-10-01'\n  AND COALESCE(cncl_yn, 'N') <> 'Y';",
+      "latency_s": 1.539
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q03",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "명의인"
+      ],
+      "answer": 234,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(DISTINCT ar.cust_no) AS active_customer_count\nFROM acct_rel ar\nJOIN txn t ON t.acct_no = ar.acct_no\nWHERE t.txn_dt >= '2026-01-01'\n  AND t.txn_dt < '2026-07-01'\n  AND t.cncl_yn = 'N';",
+      "latency_s": 1.646
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q04",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "명의인"
+      ],
+      "answer": 164,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(DISTINCT ar.cust_no)\nFROM acct_rel ar\nJOIN acct a ON a.acct_no = ar.acct_no\nWHERE a.acct_stat_cd = '활성'\n  AND a.open_ymd <= '2026-07-31';",
+      "latency_s": 1.361
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q05",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "금액방향"
+      ],
+      "answer": 398491000,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(\n    CASE\n        WHEN txn_cd = '입금' THEN amt\n        WHEN txn_cd = '출금' THEN -amt\n        ELSE 0\n    END\n), 0) AS 순입금액\nFROM txn\nWHERE txn_dt >= '2026-08-01'\n  AND txn_dt < '2026-09-01'\n  AND cncl_yn = 'N';",
+      "latency_s": 1.568
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q06",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "금액방향"
+      ],
+      "answer": 1501034000,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(CASE WHEN txn_cd = '입금' THEN amt WHEN txn_cd = '출금' THEN -amt ELSE 0 END), 0) AS 순입금액\nFROM txn\nWHERE txn_dt >= '2026-01-01'\n  AND txn_dt < '2026-04-01'\n  AND COALESCE(cncl_yn, 'N') <> 'Y';",
+      "latency_s": 1.54
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q07",
+      "tags": [
+        "metric",
+        "날짜",
+        "취소",
+        "금액방향",
+        "코드값"
+      ],
+      "answer": 578305000,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(CASE\n    WHEN txn_cd = '입금' THEN amt\n    WHEN txn_cd = '출금' THEN -amt\n    ELSE 0\nEND), 0) AS 순입금액\nFROM txn\nWHERE txn_dt >= '20260701'\n  AND txn_dt < '20261001'\n  AND chnl_cd = '모바일뱅킹'\n  AND cncl_yn = 'N';",
+      "latency_s": 1.556
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q08",
+      "tags": [
+        "metric",
+        "날짜",
+        "취소",
+        "금액방향",
+        "코드값"
+      ],
+      "answer": 69872000,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(\n    CASE\n        WHEN txn_cd = '입금' THEN amt\n        WHEN txn_cd = '출금' THEN -amt\n        ELSE 0\n    END\n), 0) AS 순입금액\nFROM txn\nWHERE txn_dt >= '20260901'\n  AND txn_dt < '20261001'\n  AND chnl_cd = '창구'\n  AND cncl_yn = 'N';",
+      "latency_s": 1.548
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q09",
+      "tags": [
+        "search",
+        "코드값"
+      ],
+      "answer": 173,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS female_customer_count\nFROM cust\nWHERE sex_cd = '여성';",
+      "latency_s": 1.513
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q10",
+      "tags": [
+        "search",
+        "날짜"
+      ],
+      "answer": 20,
+      "value": 20,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*)\nFROM cust\nWHERE join_ymd >= '20200101'\n  AND join_ymd < '20210101';",
+      "latency_s": 1.226
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q11",
+      "tags": [
+        "search",
+        "날짜"
+      ],
+      "answer": 73,
+      "value": 73,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS customer_count\nFROM cust\nWHERE birth_ymd >= '19900101'\n  AND birth_ymd < '20000101';",
+      "latency_s": 1.739
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q12",
+      "tags": [
+        "search",
+        "등급",
+        "코드값"
+      ],
+      "answer": 65,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*) FROM cust WHERE cust_grd_cd = 'VIP';",
+      "latency_s": 1.023
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q13",
+      "tags": [
+        "search",
+        "코드값"
+      ],
+      "answer": 36,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS dormant_account_count\nFROM acct\nWHERE acct_stat_cd = '휴면';",
+      "latency_s": 1.225
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q14",
+      "tags": [
+        "search",
+        "코드값"
+      ],
+      "answer": 22,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS closed_account_count\nFROM acct\nWHERE acct_stat_cd = '해지';",
+      "latency_s": 1.243
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q15",
+      "tags": [
+        "search",
+        "코드값"
+      ],
+      "answer": 47,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*) FROM acct WHERE prod_cd = '정기적금';",
+      "latency_s": 1.202
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q16",
+      "tags": [
+        "search",
+        "날짜"
+      ],
+      "answer": 27,
+      "value": 27,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*)\nFROM acct\nWHERE open_ymd >= '2020-01-01'\n  AND open_ymd < '2021-01-01';",
+      "latency_s": 1.542
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q17",
+      "tags": [
+        "search",
+        "날짜",
+        "취소"
+      ],
+      "answer": 28,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*)\nFROM txn\nWHERE txn_dt >= '2026-09-01'\n  AND txn_dt < '2026-10-01'\n  AND cncl_yn = 'Y';",
+      "latency_s": 1.399
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q18",
+      "tags": [
+        "search",
+        "attr",
+        "코드값"
+      ],
+      "answer": 3,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS branch_count\nFROM brnc\nWHERE attr1 = '서울';",
+      "latency_s": 1.384
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q19",
+      "tags": [
+        "search",
+        "attr"
+      ],
+      "answer": 3,
+      "value": 3,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*)\nFROM brnc\nWHERE attr4 >= 20;",
+      "latency_s": 1.117
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q20",
+      "tags": [
+        "search",
+        "attr",
+        "코드값"
+      ],
+      "answer": 3,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*)\nFROM brnc\nWHERE attr1 = '인천';",
+      "latency_s": 1.047
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q21",
+      "tags": [
+        "link",
+        "대조군"
+      ],
+      "answer": 2,
+      "value": 2,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(DISTINCT acct_no)\nFROM acct_rel\nWHERE cust_no = 'C00003';",
+      "latency_s": 1.286
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q22",
+      "tags": [
+        "link",
+        "명의인"
+      ],
+      "answer": "110-000127",
+      "value": [],
+      "correct": false,
+      "error": null,
+      "sql": "SELECT acct_no\nFROM acct_rel\nWHERE cust_no = 'C00086'\n  AND rel_cd = '대리인';",
+      "latency_s": 1.02
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q23",
+      "tags": [
+        "link",
+        "날짜",
+        "시스템거래"
+      ],
+      "answer": 4,
+      "value": 0,
+      "correct": false,
+      "error": null,
+      "sql": "SELECT COUNT(*)\nFROM txn\nWHERE acct_no = '110-000001'\n  AND txn_dt >= '20260901'\n  AND txn_dt < '20261001'\n  AND txn_cd = '입금';",
+      "latency_s": 1.415
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q24",
+      "tags": [
+        "link",
+        "attr"
+      ],
+      "answer": "강남지점",
+      "value": "강남지점",
+      "correct": true,
+      "error": null,
+      "sql": "SELECT b.attr1\nFROM acct a\nJOIN brnc b ON b.brnc_cd = a.brnc_cd\nWHERE a.acct_no = '110-000001';",
+      "latency_s": 1.152
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q25",
+      "tags": [
+        "search",
+        "대조군"
+      ],
+      "answer": 8,
+      "value": 8,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) FROM brnc;",
+      "latency_s": 1.517
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q26",
+      "tags": [
+        "search",
+        "대조군"
+      ],
+      "answer": "B001",
+      "value": "B001",
+      "correct": true,
+      "error": null,
+      "sql": "SELECT brnc_cd\nFROM acct\nWHERE acct_no = '110-000001';",
+      "latency_s": 1.331
+    },
+    {
+      "condition": "A",
+      "run": 3,
+      "id": "q27",
+      "tags": [
+        "search",
+        "대조군"
+      ],
+      "answer": "송채원",
+      "value": "송채원",
+      "correct": true,
+      "error": null,
+      "sql": "SELECT cust_nm\nFROM cust\nWHERE cust_no = 'C00001';",
+      "latency_s": 1.294
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q01",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "명의인"
+      ],
+      "answer": 165,
+      "value": 165,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(DISTINCT ar.cust_no)\nFROM txn AS t\nJOIN acct_rel AS ar\n  ON ar.acct_no = t.acct_no\n AND ar.rel_cd = '01'\nWHERE t.txn_dt >= '20260701'\n  AND t.txn_dt <= '20260930'\n  AND t.txn_cd IN ('IN', 'OUT')\n  AND t.cncl_yn = 'N';",
+      "latency_s": 1.752
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q02",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "금액방향"
+      ],
+      "answer": 389638000,
+      "value": 389638000,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(CASE WHEN txn_cd = 'IN' THEN amt WHEN txn_cd = 'OUT' THEN -amt ELSE 0 END), 0) AS net_deposit\nFROM txn\nWHERE txn_dt >= '20260901'\n  AND txn_dt < '20261001'\n  AND cncl_yn = 'N';",
+      "latency_s": 1.634
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q03",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "명의인"
+      ],
+      "answer": 234,
+      "value": 234,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(DISTINCT ar.cust_no)\nFROM txn AS t\nJOIN acct_rel AS ar\n  ON ar.acct_no = t.acct_no\n AND ar.rel_cd = '01'\nWHERE t.txn_dt >= '20260101'\n  AND t.txn_dt < '20260701'\n  AND t.txn_cd IN ('IN', 'OUT')\n  AND t.cncl_yn = 'N';",
+      "latency_s": 1.55
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q04",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "명의인"
+      ],
+      "answer": 164,
+      "value": 164,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(DISTINCT ar.cust_no) AS active_customer_count\nFROM txn AS t\nJOIN acct_rel AS ar\n  ON ar.acct_no = t.acct_no\n AND ar.rel_cd = '01'\nWHERE t.txn_dt >= '20260701'\n  AND t.txn_dt < '20260801'\n  AND t.txn_cd IN ('IN', 'OUT')\n  AND t.cncl_yn = 'N';",
+      "latency_s": 1.639
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q05",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "금액방향"
+      ],
+      "answer": 398491000,
+      "value": 398491000,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(CASE WHEN txn_cd = 'IN' THEN amt WHEN txn_cd = 'OUT' THEN -amt ELSE 0 END), 0) AS net_deposit\nFROM txn\nWHERE txn_dt >= '20260801'\n  AND txn_dt < '20260901'\n  AND cncl_yn = 'N';",
+      "latency_s": 1.407
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q06",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "금액방향"
+      ],
+      "answer": 1501034000,
+      "value": 1501034000,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(CASE WHEN txn_cd = 'IN' THEN amt WHEN txn_cd = 'OUT' THEN -amt ELSE 0 END), 0) AS net_deposit\nFROM txn\nWHERE txn_dt >= '20260101'\n  AND txn_dt < '20260401'\n  AND cncl_yn = 'N';",
+      "latency_s": 1.526
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q07",
+      "tags": [
+        "metric",
+        "날짜",
+        "취소",
+        "금액방향",
+        "코드값"
+      ],
+      "answer": 578305000,
+      "value": 578305000,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(CASE\n    WHEN txn.txn_cd = 'IN' THEN txn.amt\n    WHEN txn.txn_cd = 'OUT' THEN -txn.amt\n    ELSE 0\nEND), 0) AS net_deposit\nFROM txn\nWHERE txn.txn_dt >= '20260701'\n  AND txn.txn_dt < '20261001'\n  AND txn.chnl_cd = '04'\n  AND txn.cncl_yn = 'N'\n  AND txn.txn_cd IN ('IN', 'OUT');",
+      "latency_s": 1.897
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q08",
+      "tags": [
+        "metric",
+        "날짜",
+        "취소",
+        "금액방향",
+        "코드값"
+      ],
+      "answer": 69872000,
+      "value": 69872000,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(CASE\n    WHEN txn.txn_cd = 'IN' THEN txn.amt\n    WHEN txn.txn_cd = 'OUT' THEN -txn.amt\n    ELSE 0\nEND), 0) AS net_deposit\nFROM txn\nWHERE txn.txn_dt >= '20260901'\n  AND txn.txn_dt < '20261001'\n  AND txn.chnl_cd = '01'\n  AND txn.cncl_yn = 'N'\n  AND txn.txn_cd IN ('IN', 'OUT');",
+      "latency_s": 1.774
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q09",
+      "tags": [
+        "search",
+        "코드값"
+      ],
+      "answer": 173,
+      "value": 173,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS female_customer_count\nFROM cust\nWHERE sex_cd = '2';",
+      "latency_s": 1.941
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q10",
+      "tags": [
+        "search",
+        "날짜"
+      ],
+      "answer": 20,
+      "value": 20,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS customer_count\nFROM cust\nWHERE join_ymd >= '20200101'\n  AND join_ymd < '20210101';",
+      "latency_s": 1.636
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q11",
+      "tags": [
+        "search",
+        "날짜"
+      ],
+      "answer": 73,
+      "value": 73,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS customer_count\nFROM cust\nWHERE birth_ymd >= '19900101'\n  AND birth_ymd < '20000101';",
+      "latency_s": 1.842
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q12",
+      "tags": [
+        "search",
+        "등급",
+        "코드값"
+      ],
+      "answer": 65,
+      "value": 65,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS vip_customer_count\nFROM cust\nWHERE cust_grd_cd = '01';",
+      "latency_s": 1.167
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q13",
+      "tags": [
+        "search",
+        "코드값"
+      ],
+      "answer": 36,
+      "value": 36,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS dormant_account_count\nFROM acct\nWHERE acct_stat_cd = 'D';",
+      "latency_s": 1.269
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q14",
+      "tags": [
+        "search",
+        "코드값"
+      ],
+      "answer": 22,
+      "value": 22,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS closed_account_count\nFROM acct\nWHERE acct_stat_cd = 'C';",
+      "latency_s": 1.155
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q15",
+      "tags": [
+        "search",
+        "코드값"
+      ],
+      "answer": 47,
+      "value": 47,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS regular_savings_account_count\nFROM acct\nWHERE prod_cd = 'SV01';",
+      "latency_s": 1.167
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q16",
+      "tags": [
+        "search",
+        "날짜"
+      ],
+      "answer": 27,
+      "value": 27,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS account_count\nFROM acct\nWHERE open_ymd >= '20200101'\n  AND open_ymd < '20210101';",
+      "latency_s": 1.339
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q17",
+      "tags": [
+        "search",
+        "날짜",
+        "취소"
+      ],
+      "answer": 28,
+      "value": 28,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS cancelled_txn_count\nFROM txn\nWHERE txn_dt >= '20260901'\n  AND txn_dt < '20261001'\n  AND cncl_yn = 'Y';",
+      "latency_s": 1.347
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q18",
+      "tags": [
+        "search",
+        "attr",
+        "코드값"
+      ],
+      "answer": 3,
+      "value": 3,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS branch_count\nFROM brnc\nWHERE attr2 = '11';",
+      "latency_s": 1.622
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q19",
+      "tags": [
+        "search",
+        "attr"
+      ],
+      "answer": 3,
+      "value": 3,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*)\nFROM brnc\nWHERE attr4 >= 20;",
+      "latency_s": 1.313
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q20",
+      "tags": [
+        "search",
+        "attr",
+        "코드값"
+      ],
+      "answer": 3,
+      "value": 3,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS branch_count\nFROM brnc\nWHERE attr2 = '28';",
+      "latency_s": 1.101
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q21",
+      "tags": [
+        "link",
+        "대조군"
+      ],
+      "answer": 2,
+      "value": 2,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*)\nFROM acct_rel\nWHERE cust_no = 'C00003'\n  AND rel_cd = '01';",
+      "latency_s": 1.296
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q22",
+      "tags": [
+        "link",
+        "명의인"
+      ],
+      "answer": "110-000127",
+      "value": "110-000127",
+      "correct": true,
+      "error": null,
+      "sql": "SELECT acct_no\nFROM acct_rel\nWHERE cust_no = 'C00086'\n  AND rel_cd = '02';",
+      "latency_s": 1.46
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q23",
+      "tags": [
+        "link",
+        "날짜",
+        "시스템거래"
+      ],
+      "answer": 4,
+      "value": 4,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS deposit_count\nFROM txn\nWHERE acct_no = '110-000001'\n  AND txn_cd = 'IN'\n  AND cncl_yn = 'N'\n  AND txn_dt >= '20260901'\n  AND txn_dt < '20261001';",
+      "latency_s": 1.869
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q24",
+      "tags": [
+        "link",
+        "attr"
+      ],
+      "answer": "강남지점",
+      "value": "강남지점",
+      "correct": true,
+      "error": null,
+      "sql": "SELECT b.attr1\nFROM acct AS a\nJOIN brnc AS b ON b.brnc_cd = a.brnc_cd\nWHERE a.acct_no = '110-000001';",
+      "latency_s": 1.269
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q25",
+      "tags": [
+        "search",
+        "대조군"
+      ],
+      "answer": 8,
+      "value": 8,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS total_branch_count\nFROM brnc;",
+      "latency_s": 1.317
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q26",
+      "tags": [
+        "search",
+        "대조군"
+      ],
+      "answer": "B001",
+      "value": "B001",
+      "correct": true,
+      "error": null,
+      "sql": "SELECT brnc_cd\nFROM acct\nWHERE acct_no = '110-000001';",
+      "latency_s": 1.183
+    },
+    {
+      "condition": "B",
+      "run": 1,
+      "id": "q27",
+      "tags": [
+        "search",
+        "대조군"
+      ],
+      "answer": "송채원",
+      "value": "송채원",
+      "correct": true,
+      "error": null,
+      "sql": "SELECT cust_nm\nFROM cust\nWHERE cust_no = 'C00001';",
+      "latency_s": 1.036
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q01",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "명의인"
+      ],
+      "answer": 165,
+      "value": 165,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(DISTINCT ar.cust_no)\nFROM txn AS t\nJOIN acct_rel AS ar\n  ON ar.acct_no = t.acct_no\n AND ar.rel_cd = '01'\nWHERE t.txn_dt >= '20260701'\n  AND t.txn_dt < '20261001'\n  AND t.txn_cd IN ('IN', 'OUT')\n  AND t.cncl_yn = 'N';",
+      "latency_s": 1.566
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q02",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "금액방향"
+      ],
+      "answer": 389638000,
+      "value": 389638000,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(CASE WHEN txn_cd = 'IN' THEN amt WHEN txn_cd = 'OUT' THEN -amt ELSE 0 END), 0) AS net_deposit\nFROM txn\nWHERE txn_dt >= '20260901'\n  AND txn_dt < '20261001'\n  AND cncl_yn = 'N';",
+      "latency_s": 1.321
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q03",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "명의인"
+      ],
+      "answer": 234,
+      "value": 234,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(DISTINCT ar.cust_no) AS active_customer_count\nFROM txn t\nJOIN acct_rel ar\n  ON ar.acct_no = t.acct_no\n AND ar.rel_cd = '01'\nWHERE t.txn_dt >= '20260101'\n  AND t.txn_dt < '20260701'\n  AND t.txn_cd IN ('IN', 'OUT')\n  AND t.cncl_yn = 'N';",
+      "latency_s": 1.386
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q04",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "명의인"
+      ],
+      "answer": 164,
+      "value": 164,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(DISTINCT ar.cust_no) AS active_customer_count\nFROM txn t\nJOIN acct_rel ar\n  ON ar.acct_no = t.acct_no\n AND ar.rel_cd = '01'\nWHERE t.txn_dt >= '20260701'\n  AND t.txn_dt < '20260801'\n  AND t.txn_cd IN ('IN', 'OUT')\n  AND t.cncl_yn = 'N';",
+      "latency_s": 1.942
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q05",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "금액방향"
+      ],
+      "answer": 398491000,
+      "value": 398491000,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(CASE WHEN txn_cd = 'IN' THEN amt WHEN txn_cd = 'OUT' THEN -amt ELSE 0 END), 0) AS net_deposit\nFROM txn\nWHERE txn_dt >= '20260801'\n  AND txn_dt < '20260901'\n  AND cncl_yn = 'N';",
+      "latency_s": 1.668
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q06",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "금액방향"
+      ],
+      "answer": 1501034000,
+      "value": 1501034000,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(CASE WHEN txn_cd = 'IN' THEN amt WHEN txn_cd = 'OUT' THEN -amt ELSE 0 END), 0) AS net_deposit\nFROM txn\nWHERE txn_dt >= '20260101'\n  AND txn_dt < '20260401'\n  AND cncl_yn = 'N';",
+      "latency_s": 1.391
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q07",
+      "tags": [
+        "metric",
+        "날짜",
+        "취소",
+        "금액방향",
+        "코드값"
+      ],
+      "answer": 578305000,
+      "value": 578305000,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(CASE\n    WHEN txn.txn_cd = 'IN' THEN txn.amt\n    WHEN txn.txn_cd = 'OUT' THEN -txn.amt\n    ELSE 0\nEND), 0) AS net_deposit\nFROM txn\nWHERE txn.txn_dt >= '20260701'\n  AND txn.txn_dt < '20261001'\n  AND txn.chnl_cd = '04'\n  AND txn.cncl_yn = 'N'\n  AND txn.txn_cd IN ('IN', 'OUT');",
+      "latency_s": 1.457
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q08",
+      "tags": [
+        "metric",
+        "날짜",
+        "취소",
+        "금액방향",
+        "코드값"
+      ],
+      "answer": 69872000,
+      "value": 69872000,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(CASE WHEN txn_cd = 'IN' THEN amt WHEN txn_cd = 'OUT' THEN -amt ELSE 0 END), 0) AS net_deposit\nFROM txn\nWHERE txn_dt >= '20260901'\n  AND txn_dt < '20261001'\n  AND chnl_cd = '01'\n  AND cncl_yn = 'N'\n  AND txn_cd IN ('IN', 'OUT');",
+      "latency_s": 1.758
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q09",
+      "tags": [
+        "search",
+        "코드값"
+      ],
+      "answer": 173,
+      "value": 173,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS female_customer_count\nFROM cust\nWHERE sex_cd = '2';",
+      "latency_s": 1.299
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q10",
+      "tags": [
+        "search",
+        "날짜"
+      ],
+      "answer": 20,
+      "value": 20,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS customer_count\nFROM cust\nWHERE join_ymd >= '20200101'\n  AND join_ymd < '20210101';",
+      "latency_s": 1.089
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q11",
+      "tags": [
+        "search",
+        "날짜"
+      ],
+      "answer": 73,
+      "value": 73,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS customer_count\nFROM cust\nWHERE birth_ymd >= '19900101'\n  AND birth_ymd < '20000101';",
+      "latency_s": 1.473
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q12",
+      "tags": [
+        "search",
+        "등급",
+        "코드값"
+      ],
+      "answer": 65,
+      "value": 65,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS vip_customer_count\nFROM cust\nWHERE cust_grd_cd = '01';",
+      "latency_s": 1.049
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q13",
+      "tags": [
+        "search",
+        "코드값"
+      ],
+      "answer": 36,
+      "value": 36,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS dormant_account_count\nFROM acct\nWHERE acct_stat_cd = 'D';",
+      "latency_s": 0.895
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q14",
+      "tags": [
+        "search",
+        "코드값"
+      ],
+      "answer": 22,
+      "value": 22,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS closed_account_count\nFROM acct\nWHERE acct_stat_cd = 'C';",
+      "latency_s": 1.218
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q15",
+      "tags": [
+        "search",
+        "코드값"
+      ],
+      "answer": 47,
+      "value": 47,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS account_count\nFROM acct\nWHERE prod_cd = 'SV01';",
+      "latency_s": 1.214
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q16",
+      "tags": [
+        "search",
+        "날짜"
+      ],
+      "answer": 27,
+      "value": 27,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS account_count\nFROM acct\nWHERE open_ymd >= '20200101'\n  AND open_ymd < '20210101';",
+      "latency_s": 1.072
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q17",
+      "tags": [
+        "search",
+        "날짜",
+        "취소"
+      ],
+      "answer": 28,
+      "value": 28,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS cancelled_txn_count\nFROM txn\nWHERE txn_dt >= '20260901'\n  AND txn_dt < '20261001'\n  AND cncl_yn = 'Y';",
+      "latency_s": 1.202
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q18",
+      "tags": [
+        "search",
+        "attr",
+        "코드값"
+      ],
+      "answer": 3,
+      "value": 3,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*)\nFROM brnc\nWHERE attr2 = '11';",
+      "latency_s": 1.484
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q19",
+      "tags": [
+        "search",
+        "attr"
+      ],
+      "answer": 3,
+      "value": 3,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS branch_count\nFROM brnc\nWHERE attr4 >= 20;",
+      "latency_s": 1.339
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q20",
+      "tags": [
+        "search",
+        "attr",
+        "코드값"
+      ],
+      "answer": 3,
+      "value": 3,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) FROM brnc WHERE attr2 = '28';",
+      "latency_s": 0.981
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q21",
+      "tags": [
+        "link",
+        "대조군"
+      ],
+      "answer": 2,
+      "value": 2,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS account_count\nFROM acct_rel\nWHERE cust_no = 'C00003'\n  AND rel_cd = '01';",
+      "latency_s": 2.126
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q22",
+      "tags": [
+        "link",
+        "명의인"
+      ],
+      "answer": "110-000127",
+      "value": "110-000127",
+      "correct": true,
+      "error": null,
+      "sql": "SELECT acct_no\nFROM acct_rel\nWHERE cust_no = 'C00086'\n  AND rel_cd = '02';",
+      "latency_s": 1.266
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q23",
+      "tags": [
+        "link",
+        "날짜",
+        "시스템거래"
+      ],
+      "answer": 4,
+      "value": 4,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS deposit_count\nFROM txn\nWHERE acct_no = '110-000001'\n  AND txn_dt >= '20260901'\n  AND txn_dt < '20261001'\n  AND txn_cd = 'IN'\n  AND cncl_yn = 'N';",
+      "latency_s": 1.683
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q24",
+      "tags": [
+        "link",
+        "attr"
+      ],
+      "answer": "강남지점",
+      "value": "강남지점",
+      "correct": true,
+      "error": null,
+      "sql": "SELECT b.attr1\nFROM acct AS a\nJOIN brnc AS b ON b.brnc_cd = a.brnc_cd\nWHERE a.acct_no = '110-000001';",
+      "latency_s": 1.318
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q25",
+      "tags": [
+        "search",
+        "대조군"
+      ],
+      "answer": 8,
+      "value": 8,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS branch_count\nFROM brnc;",
+      "latency_s": 3.464
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q26",
+      "tags": [
+        "search",
+        "대조군"
+      ],
+      "answer": "B001",
+      "value": "B001",
+      "correct": true,
+      "error": null,
+      "sql": "SELECT brnc_cd\nFROM acct\nWHERE acct_no = '110-000001';",
+      "latency_s": 1.211
+    },
+    {
+      "condition": "B",
+      "run": 2,
+      "id": "q27",
+      "tags": [
+        "search",
+        "대조군"
+      ],
+      "answer": "송채원",
+      "value": "송채원",
+      "correct": true,
+      "error": null,
+      "sql": "SELECT cust_nm\nFROM cust\nWHERE cust_no = 'C00001';",
+      "latency_s": 0.989
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q01",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "명의인"
+      ],
+      "answer": 165,
+      "value": 165,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(DISTINCT ar.cust_no)\nFROM txn AS t\nJOIN acct_rel AS ar\n  ON ar.acct_no = t.acct_no\n AND ar.rel_cd = '01'\nWHERE t.txn_dt >= '20260701'\n  AND t.txn_dt < '20261001'\n  AND t.txn_cd IN ('IN', 'OUT')\n  AND t.cncl_yn = 'N';",
+      "latency_s": 1.804
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q02",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "금액방향"
+      ],
+      "answer": 389638000,
+      "value": 389638000,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(CASE\n    WHEN txn_cd = 'IN' THEN amt\n    WHEN txn_cd = 'OUT' THEN -amt\n    ELSE 0\nEND), 0) AS net_deposit\nFROM txn\nWHERE txn_dt >= '20260901'\n  AND txn_dt < '20261001'\n  AND cncl_yn = 'N';",
+      "latency_s": 1.52
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q03",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "명의인"
+      ],
+      "answer": 234,
+      "value": 234,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(DISTINCT ar.cust_no)\nFROM txn t\nJOIN acct_rel ar\n  ON ar.acct_no = t.acct_no\n AND ar.rel_cd = '01'\nWHERE t.txn_dt >= '20260101'\n  AND t.txn_dt < '20260701'\n  AND t.txn_cd IN ('IN', 'OUT')\n  AND t.cncl_yn = 'N';",
+      "latency_s": 1.41
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q04",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "명의인"
+      ],
+      "answer": 164,
+      "value": 164,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(DISTINCT ar.cust_no) AS active_customer_count\nFROM txn AS t\nJOIN acct_rel AS ar\n  ON ar.acct_no = t.acct_no\n AND ar.rel_cd = '01'\nWHERE t.txn_dt >= '20260701'\n  AND t.txn_dt < '20260801'\n  AND t.txn_cd IN ('IN', 'OUT')\n  AND t.cncl_yn = 'N';",
+      "latency_s": 4.402
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q05",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "금액방향"
+      ],
+      "answer": 398491000,
+      "value": 398491000,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(CASE WHEN txn_cd = 'IN' THEN amt WHEN txn_cd = 'OUT' THEN -amt ELSE 0 END), 0) AS net_deposit\nFROM txn\nWHERE txn_dt >= '20260801'\n  AND txn_dt < '20260901'\n  AND cncl_yn = 'N';",
+      "latency_s": 1.387
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q06",
+      "tags": [
+        "metric",
+        "날짜",
+        "시스템거래",
+        "취소",
+        "금액방향"
+      ],
+      "answer": 1501034000,
+      "value": 1501034000,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(CASE WHEN txn_cd = 'IN' THEN amt WHEN txn_cd = 'OUT' THEN -amt ELSE 0 END), 0) AS net_deposit\nFROM txn\nWHERE txn_dt >= '20260101'\n  AND txn_dt < '20260401'\n  AND cncl_yn = 'N';",
+      "latency_s": 1.478
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q07",
+      "tags": [
+        "metric",
+        "날짜",
+        "취소",
+        "금액방향",
+        "코드값"
+      ],
+      "answer": 578305000,
+      "value": 578305000,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(CASE WHEN txn.txn_cd = 'IN' THEN txn.amt WHEN txn.txn_cd = 'OUT' THEN -txn.amt ELSE 0 END), 0) AS net_deposit\nFROM txn\nWHERE txn.txn_dt >= '20260701'\n  AND txn.txn_dt < '20261001'\n  AND txn.chnl_cd = '04'\n  AND txn.cncl_yn = 'N'\n  AND txn.txn_cd IN ('IN', 'OUT');",
+      "latency_s": 1.708
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q08",
+      "tags": [
+        "metric",
+        "날짜",
+        "취소",
+        "금액방향",
+        "코드값"
+      ],
+      "answer": 69872000,
+      "value": 69872000,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COALESCE(SUM(CASE WHEN txn.txn_cd = 'IN' THEN txn.amt WHEN txn.txn_cd = 'OUT' THEN -txn.amt ELSE 0 END), 0) AS net_deposit\nFROM txn\nJOIN acct ON txn.acct_no = acct.acct_no\nWHERE txn.txn_dt >= '20260901'\n  AND txn.txn_dt < '20261001'\n  AND txn.chnl_cd = '01'\n  AND txn.cncl_yn = 'N'\n  AND txn.txn_cd IN ('IN', 'OUT');",
+      "latency_s": 1.629
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q09",
+      "tags": [
+        "search",
+        "코드값"
+      ],
+      "answer": 173,
+      "value": 173,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS female_customer_count\nFROM cust\nWHERE sex_cd = '2';",
+      "latency_s": 1.22
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q10",
+      "tags": [
+        "search",
+        "날짜"
+      ],
+      "answer": 20,
+      "value": 20,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS customer_count\nFROM cust\nWHERE join_ymd >= '20200101'\n  AND join_ymd < '20210101';",
+      "latency_s": 1.406
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q11",
+      "tags": [
+        "search",
+        "날짜"
+      ],
+      "answer": 73,
+      "value": 73,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS customer_count\nFROM cust\nWHERE birth_ymd >= '19900101'\n  AND birth_ymd < '20000101';",
+      "latency_s": 1.314
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q12",
+      "tags": [
+        "search",
+        "등급",
+        "코드값"
+      ],
+      "answer": 65,
+      "value": 65,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS vip_customer_count\nFROM cust\nWHERE cust_grd_cd = '01';",
+      "latency_s": 1.082
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q13",
+      "tags": [
+        "search",
+        "코드값"
+      ],
+      "answer": 36,
+      "value": 36,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS dormant_account_count\nFROM acct\nWHERE acct_stat_cd = 'D';",
+      "latency_s": 1.049
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q14",
+      "tags": [
+        "search",
+        "코드값"
+      ],
+      "answer": 22,
+      "value": 22,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS closed_account_count\nFROM acct\nWHERE acct_stat_cd = 'C';",
+      "latency_s": 2.191
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q15",
+      "tags": [
+        "search",
+        "코드값"
+      ],
+      "answer": 47,
+      "value": 47,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS account_count\nFROM acct\nWHERE prod_cd = 'SV01';",
+      "latency_s": 1.445
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q16",
+      "tags": [
+        "search",
+        "날짜"
+      ],
+      "answer": 27,
+      "value": 27,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS account_count\nFROM acct\nWHERE open_ymd >= '20200101'\n  AND open_ymd < '20210101';",
+      "latency_s": 1.216
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q17",
+      "tags": [
+        "search",
+        "날짜",
+        "취소"
+      ],
+      "answer": 28,
+      "value": 28,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS canceled_transaction_count\nFROM txn\nWHERE txn_dt >= '20260901'\n  AND txn_dt < '20261001'\n  AND cncl_yn = 'Y';",
+      "latency_s": 1.586
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q18",
+      "tags": [
+        "search",
+        "attr",
+        "코드값"
+      ],
+      "answer": 3,
+      "value": 3,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*)\nFROM brnc\nWHERE attr2 = '11';",
+      "latency_s": 1.402
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q19",
+      "tags": [
+        "search",
+        "attr"
+      ],
+      "answer": 3,
+      "value": 3,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*)\nFROM brnc\nWHERE attr4 >= 20;",
+      "latency_s": 0.979
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q20",
+      "tags": [
+        "search",
+        "attr",
+        "코드값"
+      ],
+      "answer": 3,
+      "value": 3,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) FROM brnc WHERE attr2 = '28';",
+      "latency_s": 1.693
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q21",
+      "tags": [
+        "link",
+        "대조군"
+      ],
+      "answer": 2,
+      "value": 2,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*)\nFROM acct_rel\nWHERE cust_no = 'C00003'\n  AND rel_cd = '01';",
+      "latency_s": 1.284
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q22",
+      "tags": [
+        "link",
+        "명의인"
+      ],
+      "answer": "110-000127",
+      "value": "110-000127",
+      "correct": true,
+      "error": null,
+      "sql": "SELECT acct_no\nFROM acct_rel\nWHERE cust_no = 'C00086'\n  AND rel_cd = '02';",
+      "latency_s": 1.301
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q23",
+      "tags": [
+        "link",
+        "날짜",
+        "시스템거래"
+      ],
+      "answer": 4,
+      "value": 4,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS deposit_count\nFROM txn\nWHERE acct_no = '110-000001'\n  AND txn_dt >= '20260901'\n  AND txn_dt < '20261001'\n  AND txn_cd = 'IN'\n  AND cncl_yn = 'N';",
+      "latency_s": 1.26
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q24",
+      "tags": [
+        "link",
+        "attr"
+      ],
+      "answer": "강남지점",
+      "value": "강남지점",
+      "correct": true,
+      "error": null,
+      "sql": "SELECT b.attr1\nFROM acct AS a\nJOIN brnc AS b ON b.brnc_cd = a.brnc_cd\nWHERE a.acct_no = '110-000001';",
+      "latency_s": 1.081
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q25",
+      "tags": [
+        "search",
+        "대조군"
+      ],
+      "answer": 8,
+      "value": 8,
+      "correct": true,
+      "error": null,
+      "sql": "SELECT COUNT(*) AS total_branch_count\nFROM brnc;",
+      "latency_s": 1.244
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q26",
+      "tags": [
+        "search",
+        "대조군"
+      ],
+      "answer": "B001",
+      "value": "B001",
+      "correct": true,
+      "error": null,
+      "sql": "SELECT brnc_cd\nFROM acct\nWHERE acct_no = '110-000001';",
+      "latency_s": 1.004
+    },
+    {
+      "condition": "B",
+      "run": 3,
+      "id": "q27",
+      "tags": [
+        "search",
+        "대조군"
+      ],
+      "answer": "송채원",
+      "value": "송채원",
+      "correct": true,
+      "error": null,
+      "sql": "SELECT cust_nm\nFROM cust\nWHERE cust_no = 'C00001';",
+      "latency_s": 1.012
+    }
+  ]
+}

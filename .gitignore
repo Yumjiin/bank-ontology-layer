@@ -16,3 +16,6 @@ venv/
 Thumbs.db
 .vscode/
 .idea/
+
+# 평가 리허설·테스트 실행 결과 (최종 결과는 eval/results/에 저장해 git에 올림)
+eval/runs/

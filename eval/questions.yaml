@@ -6,10 +6,12 @@
 # - 정답은 숫자 하나 위주 (자동 채점용). 개수 답은 검색 도구 limit(최대 200) 이하
 # - tags 첫 값은 C에서 쓰일 도구 유형(metric: get_metric, search: search_objects, link: get_linked_objects),
 #   나머지는 시험하는 함정: 날짜, 시스템거래(이자·수수료), 취소, 명의인, 금액방향, 코드값, attr, 등급
+# - 함정 태그는 "어기면 실제로 오답이 나오는 것"만 표시함. 정답 SQL에 조건이 있어도 어겼을 때 결과가 같으면 제외
+#   (예: q03 취소, q07·q08 시스템거래, q23 취소. 해당 기간·조건에 영향을 주는 데이터가 없음)
 # - 대조군: 함정을 몰라도(가장 단순한 SQL로도) 정답이 나오는 문항
 #
 # 참고: q12(등급)는 발표 정의 문서(semantic_definitions.yaml)에 등급 정의가 없어,
-#       조건 B 프롬프트에 cust_grd_cd 정의(01 VIP, 02 일반)를 추가해야 공정함
+#       조건 B 프롬프트에 cust_grd_cd 정의(01 VIP, 02 일반)를 추가함 (eval/run_eval.py의 GRADE_DEFINITION)
 
 questions:
   - id: q01
