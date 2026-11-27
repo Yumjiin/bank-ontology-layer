@@ -10,6 +10,11 @@
   docker compose run --rm eval                         # A·B 각 3회
   docker compose run --rm eval --ids q01 q02 --runs 1  # 일부 문항만
   docker compose run --rm eval --dry-run               # LLM 대신 정답 SQL로 채점기 확인 (모두 정답이어야 함)
+  docker compose run --rm eval --final                 # 발표에 쓸 최종 실행
+
+결과 저장 위치
+  eval/runs/     리허설·테스트 실행 (기본, git에 올리지 않음)
+  eval/results/  --final로 실행한 최종 결과 (git에 올림)
 
 필요한 환경변수 (.env): DATABASE_URL, LLM_MODEL, LLM_API_KEY
 정답은 seed 적재 직후 기준이므로, 시연 등으로 데이터가 바뀌었다면 docker compose down -v 후 실행함.
@@ -32,7 +37,8 @@ import yaml
 EVAL_DIR = Path(__file__).resolve().parent
 QUESTIONS_PATH = EVAL_DIR / "questions.yaml"
 DEFINITIONS_PATH = EVAL_DIR.parent / "data" / "reference" / "semantic_definitions.yaml"
-RESULTS_DIR = EVAL_DIR / "results"
+RUNS_DIR = EVAL_DIR / "runs"        # 리허설·테스트 실행 결과 (.gitignore)
+RESULTS_DIR = EVAL_DIR / "results"  # 최종 결과 (git에 올림)
 
 # 원천 테이블 5개만 제공 (시스템 테이블 action_request, agent_trace 제외, 발표 데모 DDL과 같은 범위)
 SOURCE_TABLES = ["brnc", "cust", "acct", "acct_rel", "txn"]
@@ -184,6 +190,7 @@ def main() -> int:
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--ids", nargs="+", help="일부 문항만 실행 (예: q01 q02)")
     parser.add_argument("--dry-run", action="store_true", help="LLM 대신 정답 SQL로 채점기 확인")
+    parser.add_argument("--final", action="store_true", help="최종 결과로 eval/results/에 저장 (기본은 eval/runs/)")
     args = parser.parse_args()
 
     questions = yaml.safe_load(QUESTIONS_PATH.read_text(encoding="utf-8"))["questions"]
@@ -225,9 +232,12 @@ def main() -> int:
 
     summarize(records, args.conditions)
 
-    RESULTS_DIR.mkdir(exist_ok=True)
+    if args.final and args.dry_run:
+        print("--final은 --dry-run과 함께 쓸 수 없어 eval/runs/에 저장함")
+    out_dir = RESULTS_DIR if args.final and not args.dry_run else RUNS_DIR
+    out_dir.mkdir(exist_ok=True)
     prefix = "dryrun" if args.dry_run else "ab"
-    out = RESULTS_DIR / f"{prefix}_{datetime.now():%Y%m%d_%H%M%S}.json"
+    out = out_dir / f"{prefix}_{datetime.now():%Y%m%d_%H%M%S}.json"
     out.write_text(json.dumps({
         "meta": {"started_at": started, "model": model, "conditions": args.conditions,
                  "runs": args.runs, "dry_run": args.dry_run, "common_header": COMMON_HEADER},
